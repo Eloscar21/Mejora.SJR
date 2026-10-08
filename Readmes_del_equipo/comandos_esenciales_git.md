@@ -71,3 +71,34 @@ A lo largo del proyecto, arruinaste el historial reescribiendo ramas viejas. Est
 
 `git shortlog -sn --all`
 - **Qué hace:** Genera una tabla de posiciones resumiendo cuántos commits ha hecho cada persona en el proyecto.
+
+---
+
+### Subir carpetas vacías a Git
+
+Por defecto, Git no rastrea carpetas que estén vacías. Para obligarlo a hacerlo, necesitas crear un archivo oculto llamado `.gitkeep` dentro de la carpeta.
+
+`touch nombre_carpeta/.gitkeep` (Mac/Linux) o crear un archivo vacío `.gitkeep` (Windows)
+- **Qué hace:** Crea un archivo en blanco en la carpeta para que Git la reconozca y la suba al repositorio.
+
+### Propagar cambios de una rama a otras (Ej: de dev a main y sP1)
+
+Cuando tienes tus cambios listos y subidos a una rama (por ejemplo, `dev`), y quieres pasarlos a otras ramas sin tener que hacer todo de nuevo, usas estos comandos en secuencia:
+
+1. Subes todo a tu rama actual:
+`git add .`
+`git commit -m "Tus cambios"`
+`git push origin dev`
+
+2. Cambias a la primera rama destino y fusionas:
+`git checkout main`
+`git merge dev`
+`git push origin main`
+
+3. Cambias a la siguiente rama y repites:
+`git checkout sP1`
+`git merge dev`
+`git push origin sP1`
+
+4. Vuelves a tu rama original para seguir trabajando:
+`git checkout dev`
