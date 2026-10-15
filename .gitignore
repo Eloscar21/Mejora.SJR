@@ -1,0 +1,16 @@
+# Dependencias y paquetes
+node_modules/
+
+# Variables de entorno y secretos
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Builds y temporales
+dist/
+build/
+.cache/
