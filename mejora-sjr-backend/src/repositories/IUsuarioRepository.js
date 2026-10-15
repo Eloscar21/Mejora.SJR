@@ -9,6 +9,8 @@ class IUsuarioRepository {
   async buscarPorEmailConHash(email) { throw new Error('No implementado'); }
 
   async crear(usuario) { throw new Error('No implementado'); }
+
+  async buscarPorId(id) { throw new Error('No implementado'); }
 }
 
 module.exports = IUsuarioRepository;

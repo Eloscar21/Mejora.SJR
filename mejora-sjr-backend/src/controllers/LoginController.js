@@ -20,13 +20,18 @@ class LoginController {
         throw new ValidacionError('El cuerpo de la petición es obligatorio');
       }
 
-      const { email, password } = body;
+      const { email, password, canal = 'web' } = body;
       if (!email || !password) {
         throw new ValidacionError('Los campos email y password son obligatorios');
       }
 
       // El servicio valida, autentica y devuelve el JWT firmado
-      const token = await this.loginService.login({ email, password });
+      const token = await this.loginService.login({ email, password, canal });
+
+      res.set('Cache-Control', 'no-store');
+      if (canal === 'movil') {
+        return res.status(200).json({ mensaje: 'Login exitoso', token });
+      }
 
       // Responsabilidad del controlador: saber cómo transportar el token al cliente.
       // HttpOnly: JavaScript del browser NO puede leerla → protección contra XSS.

@@ -20,10 +20,13 @@ class LoginService {
 
   /**
    * Valida credenciales y devuelve un JWT firmado.
-   * @param {{ email: string, password: string }} credenciales
+   * @param {{ email: string, password: string, canal?: 'web' | 'movil' }} credenciales
    * @returns {Promise<string>} token JWT
    */
-  async login({ email, password }) {
+  async login({ email, password, canal = 'web' }) {
+    if (canal !== 'web' && canal !== 'movil') {
+      throw new ValidacionError('El canal debe ser web o movil');
+    }
     // --- Validación de entrada ---
     const emailNormalizado = this._normalizarEmail(email);
 
@@ -43,9 +46,9 @@ class LoginService {
       throw new CredencialesInvalidasError();
     }
 
-    // --- Solo roles web pueden acceder al dashboard ---
-    // IdRol 1 (ciudadano) y 2 (trabajador) son exclusivos de la app móvil.
-    if (usuario.IdRol === 1 || usuario.IdRol === 2) {
+    // El canal selecciona la admisión; el rol confiable proviene de la BD.
+    const rolesPermitidos = canal === 'web' ? [3, 4] : [1, 2];
+    if (!rolesPermitidos.includes(usuario.IdRol)) {
       throw new CredencialesInvalidasError();
     }
 
@@ -53,6 +56,7 @@ class LoginService {
     // El payload no debe contener datos sensibles (ej. PasswordHash).
     const payload = {
       sub: usuario.IdUsuario,
+      canal,
       nombre: usuario.Nombre,
       idRol: usuario.IdRol,
       idDepartamento: usuario.IdDepartamento ?? null

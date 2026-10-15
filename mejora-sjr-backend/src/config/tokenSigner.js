@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const tokenSigner = {
   sign(payload) {
     const secret = process.env.JWT_SECRET;
-    const expiresIn = process.env.JWT_EXPIRES_IN || '8h';
+    const expiresIn = payload.canal === 'movil' ? '15m' : (process.env.JWT_EXPIRES_IN || '8h');
 
     if (!secret) {
       throw new Error('[Config] JWT_SECRET no está definido en las variables de entorno');
@@ -21,7 +21,7 @@ const tokenSigner = {
     if (!secret) {
       throw new Error('[Config] JWT_SECRET no está definido en las variables de entorno');
     }
-    return jwt.verify(token, secret);
+    return jwt.verify(token, secret, { algorithms: ['HS256'] });
   }
 };
 

@@ -20,6 +20,16 @@ class UsuarioRepository extends IUsuarioRepository {
     return result.recordset[0] || null;
   }
 
+  async buscarPorId(id) {
+    const pool = await this.getPool();
+    const request = pool.request();
+    request.input('id', this.sql.Int, id);
+    const result = await request.query(
+      'SELECT IdUsuario, Nombre, IdRol, IdDepartamento FROM Usuarios WHERE IdUsuario = @id'
+    );
+    return result.recordset[0] || null;
+  }
+
   // Login necesita el hash para la comparación con bcrypt. Método separado
   // para no exponer el PasswordHash en contextos donde no se necesita (ej. registro).
   async buscarPorEmailConHash(email) {
