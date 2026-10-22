@@ -55,7 +55,6 @@ CREATE TABLE Incidencias (
     Descripcion NVARCHAR(MAX) NOT NULL,
     Latitud DECIMAL(10, 8) NOT NULL,
     Longitud DECIMAL(11, 8) NOT NULL,
-    FotoUrl VARCHAR(255) NOT NULL,
     IdUsuario INT NOT NULL, -- El Ciudadano que reporta
     IdCategoria INT NOT NULL,
     IdEstado INT NOT NULL DEFAULT 1, -- 1 = Recibido por defecto
@@ -68,3 +67,46 @@ CREATE TABLE Incidencias (
     CONSTRAINT FK_Incidencias_Estados FOREIGN KEY (IdEstado) REFERENCES Estados(IdEstado),
     CONSTRAINT FK_Incidencias_Trabajador FOREIGN KEY (IdTrabajadorAsignado) REFERENCES Usuarios(IdUsuario)
 );
+
+CREATE TABLE EvidenciasIncidencia (
+    IdEvidencia INT IDENTITY(1,1) PRIMARY KEY,
+    IdIncidencia INT NOT NULL,
+    IdUsuario INT NOT NULL, -- Quién sube la evidencia (Ciudadano o Trabajador)
+    TipoEvidencia VARCHAR(20) NOT NULL, -- 'INICIAL', 'RESOLUCION', 'PROCESO'
+    FotoUrl VARCHAR(255) NOT NULL,
+    FechaSubida DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_Evidencias_Incidencia FOREIGN KEY (IdIncidencia) REFERENCES Incidencias(IdIncidencia) ON DELETE CASCADE,
+    CONSTRAINT FK_Evidencias_Usuario FOREIGN KEY (IdUsuario) REFERENCES Usuarios(IdUsuario),
+    CONSTRAINT CHK_TipoEvidencia CHECK (TipoEvidencia IN ('INICIAL', 'RESOLUCION', 'PROCESO'))
+);
+
+GO
+
+-- VISTA DE CONSULTA DESNORMALIZADA (CQRS Lectura Ligera)
+CREATE VIEW vw_IncidenciasDetalle AS
+SELECT 
+    i.IdIncidencia,
+    i.Descripcion,
+    i.Latitud,
+    i.Longitud,
+    i.FechaCreacion,
+    i.FechaActualizacion,
+    i.IdEstado,
+    e.Nombre AS Estado,
+    i.IdCategoria,
+    c.Nombre AS Categoria,
+    c.IdDepartamento,
+    d.Nombre AS Departamento,
+    i.IdUsuario AS IdCiudadano,
+    u.Nombre AS CiudadanoNombre,
+    i.IdTrabajadorAsignado,
+    t.Nombre AS TrabajadorNombre,
+    (SELECT TOP 1 FotoUrl FROM EvidenciasIncidencia WHERE IdIncidencia = i.IdIncidencia AND TipoEvidencia = 'INICIAL' ORDER BY FechaSubida ASC) AS FotoInicialUrl,
+    (SELECT TOP 1 FotoUrl FROM EvidenciasIncidencia WHERE IdIncidencia = i.IdIncidencia AND TipoEvidencia = 'RESOLUCION' ORDER BY FechaSubida DESC) AS FotoResolucionUrl
+FROM Incidencias i
+INNER JOIN Estados e ON i.IdEstado = e.IdEstado
+INNER JOIN Categorias c ON i.IdCategoria = c.IdCategoria
+INNER JOIN Departamentos d ON c.IdDepartamento = d.IdDepartamento
+INNER JOIN Usuarios u ON i.IdUsuario = u.IdUsuario
+LEFT JOIN Usuarios t ON i.IdTrabajadorAsignado = t.IdUsuario;
+
