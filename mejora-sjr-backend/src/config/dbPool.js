@@ -25,8 +25,6 @@ const dbConfig = {
   },
 };
 
-console.log('🛠️ dbConfig →', dbConfig);
-
 // Singleton: Se crea una sola vez y se reutiliza en toda la app.
 let pool;
 
