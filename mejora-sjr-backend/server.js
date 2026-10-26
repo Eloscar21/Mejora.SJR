@@ -49,9 +49,9 @@ const bootstrap = async () => {
     jwtSecret: config.jwtSecret
   });
 
-  // 4. Inicio de escucha HTTP
-  const server = app.listen(config.port, () => {
-    console.log(`[Server] Mejora SJR backend activo en http://localhost:${config.port} (Modo: ${config.nodeEnv})`);
+  // 4. Inicio de escucha HTTP en todas las interfaces de red (0.0.0.0) para resolver IPv4/IPv6
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(`[Server] Mejora SJR backend activo en http://127.0.0.1:${config.port} (Modo: ${config.nodeEnv})`);
   });
 
   return server;
