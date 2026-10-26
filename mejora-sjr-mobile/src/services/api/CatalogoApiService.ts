@@ -15,7 +15,7 @@ export class CatalogoApiService implements ICatalogoService {
   private baseUrl: string;
   private mockFallback: MockCatalogoService;
 
-  constructor(baseUrl: string = 'http://localhost:5000/api') {
+  constructor(baseUrl: string = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api') {
     this.baseUrl = baseUrl;
     this.mockFallback = new MockCatalogoService();
   }

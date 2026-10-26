@@ -4,12 +4,7 @@
     "slug": "mejora-sjr-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#0A3D62",
-      "resizeMode": "contain"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -17,9 +12,6 @@
       "adaptiveIcon": {
         "backgroundColor": "#0A3D62"
       }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     }
   }
 }

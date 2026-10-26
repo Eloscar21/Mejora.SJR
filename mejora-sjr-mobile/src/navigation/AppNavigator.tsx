@@ -10,7 +10,8 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../providers/AuthProvider';
 import { SplashView } from '../views/SplashView';
 import { AuthView } from '../views/AuthView';
@@ -37,10 +38,7 @@ export const AppNavigator: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle={currentScreen === 'splash' ? 'light-content' : 'dark-content'}
-        backgroundColor={currentScreen === 'splash' ? '#0A3D62' : '#F8FAFC'}
-      />
+      <StatusBar style={currentScreen === 'splash' ? 'light' : 'dark'} />
       {renderCurrentView()}
     </View>
   );

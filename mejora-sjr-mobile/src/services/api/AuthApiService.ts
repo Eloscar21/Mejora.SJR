@@ -26,7 +26,7 @@ export class AuthApiService implements IAuthService {
   private storage: IStorageService;
 
   constructor(
-    baseUrl: string = 'http://localhost:5000/api',
+    baseUrl: string = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
     storage: IStorageService = defaultStorageService
   ) {
     this.baseUrl = baseUrl;
