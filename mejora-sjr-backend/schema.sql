@@ -40,6 +40,7 @@ CREATE TABLE Usuarios (
     PasswordHash VARCHAR(255) NOT NULL,
     IdRol INT NOT NULL,
     IdDepartamento INT NULL, -- NULL si es Ciudadano o Superadmin
+    Activo BIT NOT NULL DEFAULT 1, -- Para Soft Delete (US-008)
     CONSTRAINT FK_Usuarios_Roles FOREIGN KEY (IdRol) REFERENCES Roles(IdRol),
     CONSTRAINT FK_Usuarios_Departamentos FOREIGN KEY (IdDepartamento) REFERENCES Departamentos(IdDepartamento),
     

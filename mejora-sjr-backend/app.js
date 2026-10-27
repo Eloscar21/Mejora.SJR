@@ -4,6 +4,7 @@
 const express = require('express');
 const createAuthRouter = require('./src/routes/authRoutes');
 const createCatalogoRouter = require('./src/routes/catalogoRoutes');
+const createEmpleadoRouter = require('./src/routes/empleadoRoutes');
 const errorHandler = require('./src/middlewares/errorHandler');
 
 /**
@@ -42,6 +43,7 @@ const createApp = ({ usuarioRepository, catalogoRepository, jwtSecret } = {}) =>
   // Rutas de la API con dependencias inyectadas
   app.use('/api/auth', createAuthRouter(usuarioRepository, jwtSecret));
   app.use('/api/catalogos', createCatalogoRouter(catalogoRepository));
+  app.use('/api/empleados', createEmpleadoRouter(usuarioRepository, jwtSecret));
 
   // Health check
   app.get('/health', (req, res) => {
