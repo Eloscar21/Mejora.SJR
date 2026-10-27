@@ -18,6 +18,8 @@ import {
   DecodedToken,
 } from '../../models/auth.types';
 
+import { getApiBaseUrl } from './apiConfig';
+
 const STORAGE_TOKEN_KEY = '@mejora_sjr_mobile_token';
 const STORAGE_USER_KEY = '@mejora_sjr_mobile_user';
 
@@ -26,7 +28,7 @@ export class AuthApiService implements IAuthService {
   private storage: IStorageService;
 
   constructor(
-    baseUrl: string = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+    baseUrl: string = getApiBaseUrl(),
     storage: IStorageService = defaultStorageService
   ) {
     this.baseUrl = baseUrl;

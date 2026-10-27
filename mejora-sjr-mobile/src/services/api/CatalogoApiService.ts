@@ -10,12 +10,13 @@
 import { ICatalogoService } from '../contracts/ICatalogoService';
 import { Departamento, Categoria, CatalogoResponse } from '../../models/catalogo.types';
 import { MockCatalogoService } from '../mocks/MockCatalogoService';
+import { getApiBaseUrl } from './apiConfig';
 
 export class CatalogoApiService implements ICatalogoService {
   private baseUrl: string;
   private mockFallback: MockCatalogoService;
 
-  constructor(baseUrl: string = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api') {
+  constructor(baseUrl: string = getApiBaseUrl()) {
     this.baseUrl = baseUrl;
     this.mockFallback = new MockCatalogoService();
   }
