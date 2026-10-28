@@ -7,7 +7,7 @@
  * - SRP: Mantiene el estado global de la sesión y coordina la navegación de nivel superior.
  */
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { IAuthService } from '../services/contracts/IAuthService';
 import { ICatalogoService } from '../services/contracts/ICatalogoService';
 import { IStorageService } from '../services/contracts/IStorageService';
@@ -30,9 +30,10 @@ interface AuthContextType {
   catalogoService: ICatalogoService;
   storageService: IStorageService;
   setCurrentScreen: (screen: ScreenName) => void;
-  establecerSesion: (token: string, session: UsuarioSession) => void;
+  establecerSesion: (token: string, session: UsuarioSession) => Promise<void>;
+  roleWarning: string | null;
+  setRoleWarning: (message: string | null) => void;
   cerrarSesion: () => Promise<void>;
-  navegarPorRol: (rol: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,11 +58,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const [decodedToken, setDecodedToken] = useState<DecodedToken | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('splash');
+  const [roleWarning, setRoleWarning] = useState<string | null>(null);
 
   // Inicialización de servicios desacoplados
   const authService = useMemo<IAuthService>(() => {
     if (customAuthService) return customAuthService;
-    return useMock ? new MockAuthService(customStorageService) : new AuthApiService();
+    return useMock ? new MockAuthService(customStorageService) : new AuthApiService(undefined, customStorageService);
   }, [customAuthService, customStorageService, useMock]);
 
   const catalogoService = useMemo<ICatalogoService>(() => {
@@ -73,31 +75,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     return customStorageService;
   }, [customStorageService]);
 
-  // Navegación condicional por rol requerida en US-003:
-  // - Rol 1 (Ciudadano) -> "Crear Reporte"
-  // - Rol 2 (Trabajador) -> "Bandeja de Órdenes"
-  const navegarPorRol = (rol: number) => {
-    if (rol === 1) {
-      setCurrentScreen('crearReporte');
-    } else if (rol === 2) {
-      setCurrentScreen('bandejaOrdenes');
-    } else {
-      // Perfiles 3 y 4: advertir o permitir inspección en modo auditor
-      setCurrentScreen('crearReporte');
-    }
-  };
+  // Una sola política de admisión para login, registro y restauración.
+  const establecerSesion = useCallback(async (nuevoToken: string, nuevaSesion: UsuarioSession) => {
+    const decoded = authService.decodificarToken(nuevoToken);
+    const rol = decoded?.idRol;
+    const rolCoincide = rol === nuevaSesion?.idRol;
 
-  const establecerSesion = (nuevoToken: string, nuevaSesion: UsuarioSession) => {
+    if (!rolCoincide || (rol !== 1 && rol !== 2)) {
+      const message = rolCoincide && (rol === 3 || rol === 4)
+        ? 'Accede desde el panel web.'
+        : 'Perfil no admitido.';
+      // Bloquear el acceso local incluso si el almacenamiento no permite borrar.
+      setSession(null);
+      setToken(null);
+      setDecodedToken(null);
+      setRoleWarning(message);
+      setCurrentScreen('auth');
+      setIsLoading(false);
+      try {
+        await authService.logout();
+      } catch {
+        setRoleWarning(`${message} No se pudo eliminar la sesión guardada. Intenta de nuevo.`);
+      }
+      return;
+    }
+
+    setRoleWarning(null);
     setToken(nuevoToken);
     setSession(nuevaSesion);
-    const decoded = authService.decodificarToken(nuevoToken);
     setDecodedToken(decoded);
-    if (decoded?.idRol) {
-      navegarPorRol(decoded.idRol);
-    } else if (nuevaSesion?.idRol) {
-      navegarPorRol(nuevaSesion.idRol);
-    }
-  };
+    setCurrentScreen(rol === 1 ? 'crearReporte' : 'bandejaOrdenes');
+    setIsLoading(false);
+  }, [authService]);
 
   const cerrarSesion = async () => {
     setIsLoading(true);
@@ -122,8 +131,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         storageService,
         setCurrentScreen,
         establecerSesion,
+        roleWarning,
+        setRoleWarning,
         cerrarSesion,
-        navegarPorRol,
       }}
     >
       {children}

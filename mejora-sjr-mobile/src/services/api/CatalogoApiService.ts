@@ -9,16 +9,14 @@
 
 import { ICatalogoService } from '../contracts/ICatalogoService';
 import { Departamento, Categoria, CatalogoResponse } from '../../models/catalogo.types';
-import { MockCatalogoService } from '../mocks/MockCatalogoService';
+
 import { getApiBaseUrl } from './apiConfig';
 
 export class CatalogoApiService implements ICatalogoService {
   private baseUrl: string;
-  private mockFallback: MockCatalogoService;
 
   constructor(baseUrl: string = getApiBaseUrl()) {
     this.baseUrl = baseUrl;
-    this.mockFallback = new MockCatalogoService();
   }
 
   async obtenerDepartamentos(): Promise<Departamento[]> {
@@ -34,9 +32,8 @@ export class CatalogoApiService implements ICatalogoService {
 
       const json = (await response.json()) as CatalogoResponse<Departamento>;
       return json.data || [];
-    } catch (e) {
-      console.warn('[CatalogoApiService] Fallback a mock para departamentos:', e);
-      return await this.mockFallback.obtenerDepartamentos();
+    } catch {
+      throw new Error('No se pudieron cargar los departamentos. Verifica la conexión con el servidor.');
     }
   }
 
@@ -58,9 +55,8 @@ export class CatalogoApiService implements ICatalogoService {
 
       const json = (await response.json()) as CatalogoResponse<Categoria>;
       return json.data || [];
-    } catch (e) {
-      console.warn('[CatalogoApiService] Fallback a mock para categorías:', e);
-      return await this.mockFallback.obtenerCategorias(idDepartamento);
+    } catch {
+      throw new Error('No se pudieron cargar las categorías. Verifica la conexión con el servidor.');
     }
   }
 }

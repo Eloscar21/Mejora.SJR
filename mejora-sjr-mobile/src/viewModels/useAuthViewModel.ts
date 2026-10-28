@@ -10,7 +10,6 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { ROLES_SJR } from '../models/auth.types';
 
 export interface FormErrors {
   nombre?: string;
@@ -21,7 +20,7 @@ export interface FormErrors {
 }
 
 export function useAuthViewModel() {
-  const { authService, establecerSesion } = useAuth();
+  const { authService, establecerSesion, roleWarning, setRoleWarning } = useAuth();
 
   const [authMode, setAuthMode] = useState<'login' | 'registro'>('login');
   const [nombre, setNombre] = useState('');
@@ -30,7 +29,6 @@ export function useAuthViewModel() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [roleWarning, setRoleWarning] = useState<string | null>(null);
 
   // Limpiar error específico al escribir
   const clearError = (field: keyof FormErrors) => {
@@ -135,18 +133,8 @@ export function useAuthViewModel() {
       const token = response.data.token;
       const session = response.data.usuario;
 
-      // Decodificación de JWT (US-003: "Decodificar JWT; si es Rol 1 va a Crear Reporte, si es Rol 2 a Bandeja de Órdenes")
-      const decoded = authService.decodificarToken(token);
-      const rol = decoded?.idRol || session.idRol;
-
-      if (rol === 3 || rol === 4) {
-        setRoleWarning(
-          `Perfil detectado: ${ROLES_SJR[rol as keyof typeof ROLES_SJR]}. Los Administradores y Superadmins deben gestionar las incidencias desde el Panel Administrativo Web (mejora-sjr-admin). Podrás ingresar en modo supervisor.`
-        );
-      }
-
-      // Establecer sesión y enrutar por rol
-      establecerSesion(token, session);
+      // El proveedor aplica la misma política de roles que en la restauración.
+      await establecerSesion(token, session);
     } catch (err: any) {
       setErrors({
         general: err?.message || 'Error al iniciar sesión. Verifica tus credenciales.',
@@ -177,7 +165,7 @@ export function useAuthViewModel() {
       const session = response.data.usuario;
 
       // El registro ciudadano siempre asigna Rol 1 -> Va a "Crear Reporte"
-      establecerSesion(token, session);
+      await establecerSesion(token, session);
     } catch (err: any) {
       setErrors({
         general: err?.message || 'Error al registrar la cuenta.',

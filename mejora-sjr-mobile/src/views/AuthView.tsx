@@ -68,10 +68,10 @@ export const AuthView: React.FC = () => {
             </Text>
           </View>
 
-          {/* Advertencia de Rol Web (si intentan ingresar roles 3 o 4) */}
+          {/* Aviso de acceso para perfiles no admitidos en móvil */}
           {roleWarning && (
             <View style={styles.warningCard}>
-              <Text style={styles.warningTitle}>⚠️ Nota para Administradores:</Text>
+              <Text style={styles.warningTitle}>⚠️ Acceso no permitido:</Text>
               <Text style={styles.warningText}>{roleWarning}</Text>
             </View>
           )}

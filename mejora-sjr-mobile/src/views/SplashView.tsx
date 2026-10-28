@@ -4,10 +4,10 @@
  * 
  * Reglas de US-003:
  * - Splash screen con color de fondo institucional #0A3D62.
- * - Verifica la sesión activa y redirige según el rol decodificado del JWT.
+ * - Delega la coordinación de sesión y los eventos al ViewModel.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -15,41 +15,11 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { useAuth } from '../providers/AuthProvider';
-import { COLORS, SPACING, RADIUS } from '../constants/theme';
+import { useSplashViewModel } from '../viewModels/useSplashViewModel';
+import { SPACING, RADIUS } from '../constants/theme';
 
 export const SplashView: React.FC = () => {
-  const { authService, establecerSesion, setCurrentScreen } = useAuth();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const verificarSesionInicial = async () => {
-      try {
-        const token = await authService.obtenerToken();
-        const session = await authService.obtenerUsuario();
-
-        // Pausa para apreciar el Splash institucional (#0A3D62)
-        await new Promise((r) => setTimeout(r, 1400));
-
-        if (!isMounted) return;
-
-        if (token && session) {
-          establecerSesion(token, session);
-        } else {
-          setCurrentScreen('auth');
-        }
-      } catch (e) {
-        if (isMounted) setCurrentScreen('auth');
-      }
-    };
-
-    verificarSesionInicial();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [authService, establecerSesion, setCurrentScreen]);
+  const { continuarAlInicio } = useSplashViewModel();
 
   return (
     <View style={styles.container}>
@@ -78,7 +48,7 @@ export const SplashView: React.FC = () => {
 
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => setCurrentScreen('auth')}
+          onPress={continuarAlInicio}
         >
           <Text style={styles.skipButtonText}>Continuar al Inicio ➔</Text>
         </TouchableOpacity>
