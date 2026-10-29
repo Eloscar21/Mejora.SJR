@@ -245,9 +245,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    gap: SPACING.sm,
   },
   userProfile: {
+    flex: 1,
     gap: 2,
+    marginRight: SPACING.xs,
   },
   userName: {
     fontSize: 14,
@@ -259,11 +262,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.sm,
     backgroundColor: '#FEE2E2',
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   logoutText: {
     fontSize: 12,
     color: COLORS.error,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   scrollContent: {
     padding: SPACING.md,
