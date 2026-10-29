@@ -17,4 +17,5 @@ Thumbs.db
 # Expo
 .expo/
 
-
+# TypeScript build cache
+*.tsbuildinfo

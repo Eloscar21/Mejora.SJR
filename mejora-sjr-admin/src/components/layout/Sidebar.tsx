@@ -20,7 +20,8 @@ import {
   Settings, 
   LogOut, 
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Users
 } from 'lucide-react';
 import { AuthApiService } from '../../services/api/AuthApiService';
 
@@ -37,6 +38,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { label: 'Dashboard & JWT', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Personal Municipal', href: '/admin/personal', icon: Users, badge: 'US-009' },
     { label: 'Incidencias', href: '/dashboard/incidencias', icon: AlertCircle, badge: 'Próximamente' },
     { label: 'Catálogos', href: '/dashboard/catalogos', icon: Database, badge: 'US-002' },
     { label: 'Configuración', href: '/dashboard/configuracion', icon: Settings },

@@ -51,8 +51,8 @@ export function middleware(request: NextRequest) {
   const tokenCookie = request.cookies.get(TOKEN_COOKIE_NAME);
   const token = tokenCookie?.value;
 
-  // 2. Proteger rutas del dashboard
-  if (pathname.startsWith('/dashboard')) {
+  // 2. Proteger rutas del dashboard y administración (/admin)
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
     if (!token) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('error', 'session_expired');
@@ -91,6 +91,16 @@ export function middleware(request: NextRequest) {
     }
 
     // ========================================================
+    // REGLA DE GESTIÓN SUPERADMIN (US-007 / US-009):
+    // Las rutas /admin/* requieren estrictamente IdRol = 4
+    // Si un Admin de Depto (Rol 3) intenta acceder, se redirige a /dashboard
+    // ========================================================
+    if (pathname.startsWith('/admin') && rol !== 4) {
+      console.warn(`[Security Middleware] Acceso denegado a ruta de gestión /admin para rol ${rol} (${payload.email})`);
+      return NextResponse.redirect(new URL('/dashboard?error=forbidden_admin_access', request.url));
+    }
+
+    // ========================================================
     // Solo roles 3 (Admin) y 4 (Superadmin) tienen acceso
     // ========================================================
     if (rol === 3 || rol === 4) {
@@ -126,5 +136,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login']
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/login']
 };
