@@ -2,39 +2,36 @@
  * apiConfig.ts
  * Resolución dinámica y resiliente de la URL base de la API para Mejora SJR Mobile.
  * 
- * Regla de negocio y arquitectura:
- * - Evita tener que cambiar la IP manualmente al cambiar de red Wi-Fi o datos móviles.
- * - Si EXPO_PUBLIC_API_URL está definido, lo respeta como prioridad.
- * - Si estamos en desarrollo en Expo Go o emulador, extrae dinámicamente el host
- *   desde Constants.expoConfig?.hostUri / manifest2 (la IP desde la cual Metro sirve la app).
- * - Fallback seguro a localhost:5000/api para web/emulador.
+ * Reglas de Arquitectura (Prompt Maestro 2.1):
+ * - Fail-Safe: Detección automática de la IP del host Metro en desarrollo local (LAN / Wi-Fi).
+ * - Resiliencia ante túneles: Si Expo corre con `--tunnel`, hostUri contiene un dominio
+ *   (ej: *.exp.direct), el cual no es una IP local; en ese caso recurre limpiamente a
+ *   EXPO_PUBLIC_API_URL o a fallback local.
+ * - Cero acoplamiento: No requiere reconfiguración manual al cambiar de red Wi-Fi o datos.
  */
 
 import Constants from 'expo-constants';
 
 export function getApiBaseUrl(): string {
-  // 1. Si el desarrollador definió una URL explícita (e.g. túnel ngrok o servidor en nube)
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('192.168.') && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl;
-  }
-
-  // 2. Extraer dinámicamente el host desde Expo Go (la IP actual del servidor Metro en cualquier Wi-Fi)
   const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoClient?.hostUri;
 
+  // 1. Si Metro está corriendo en red local, hostUri es de la forma "192.168.x.x:8081", "172.20.x.x:8081", etc.
   if (hostUri) {
-    // hostUri suele ser "192.168.x.x:8081" o similar
-    const ip = hostUri.split(':')[0];
-    if (ip) {
-      return `http://${ip}:5000/api`;
+    const candidateHost = hostUri.split(':')[0];
+    // Validar rigurosamente que sea un formato IPv4 numérico y no un túnel exp.direct / ngrok
+    const isIpv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(candidateHost);
+    if (isIpv4) {
+      return `http://${candidateHost}:5000/api`;
     }
   }
 
-  // 3. Si hay variable de entorno local configurada
-  if (envUrl) {
-    return envUrl;
+  // 2. Si hay una variable de entorno definida explícitamente en .env
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim().length > 0) {
+    return envUrl.trim();
   }
 
-  // 4. Fallback por defecto
+  // 3. Fallback seguro para entorno emulador / web local
   return 'http://localhost:5000/api';
 }
+
