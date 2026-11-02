@@ -183,5 +183,22 @@ describe('US-001: Autenticación y Mocks Multirrol', () => {
       expect(res.status).toBe(401);
       expect(res.body.message).toBe('Credenciales inválidas.');
     });
+
+    it('debe rechazar usuario inactivo (Activo = 0) con 401 (US-012)', async () => {
+      // Inactivar usuario en la lista interna del repositorio mock
+      const targetUser = usuarioRepository.usuarios.find(u => u.email === 'ciudadano@test.com');
+      targetUser.activo = 0;
+
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'ciudadano@test.com', password: 'Password123!' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Acceso denegado: El usuario se encuentra inactivo.');
+
+      // Restaurar estado para otras pruebas
+      targetUser.activo = 1;
+    });
   });
 });

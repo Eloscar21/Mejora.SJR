@@ -88,6 +88,14 @@ class AuthService {
       throw error;
     }
 
+    // Regla de Negocio Crítica (US-012 / E2E):
+    // Bloquear acceso si el usuario ha sido desactivado (Activo = 0 o false)
+    if (usuario.activo === 0 || usuario.activo === false) {
+      const error = new Error('Acceso denegado: El usuario se encuentra inactivo.');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const token = this._generarToken(usuario);
 
     return {
