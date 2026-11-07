@@ -77,27 +77,38 @@ export function middleware(request: NextRequest) {
     }
 
     // ========================================================
-    // REGLA FUNDAMENTAL DE NEGOCIO (US-005):
+    // REGLA FUNDAMENTAL DE NEGOCIO (US-005 / US-013):
     // Bloquear Roles 1 (Ciudadano) y 2 (Trabajador)
+    // Si intentan acceder a /admin/* o /dashboard/*, deben ser expulsados inmediatamente
     // ========================================================
     const rol = payload.idRol;
     if (rol === 1 || rol === 2) {
       console.warn(`[Security Middleware] Intento de acceso bloqueado para rol ${rol} (${payload.email}) en ${pathname}`);
       
       const response = NextResponse.redirect(new URL('/login?error=unauthorized_role', request.url));
-      // Se elimina la cookie para limpiar la sesión no autorizada
+      // Se elimina la cookie para limpiar la sesión no autorizada de inmediato
       response.cookies.delete(TOKEN_COOKIE_NAME);
       return response;
     }
 
     // ========================================================
-    // REGLA DE GESTIÓN SUPERADMIN (US-007 / US-009):
-    // Las rutas /admin/* requieren estrictamente IdRol = 4
-    // Si un Admin de Depto (Rol 3) intenta acceder, se redirige a /dashboard
+    // REGLA DE GESTIÓN Y GUARDIA RBAC (US-013):
+    // La página informativa /admin/acceso-denegado está disponible para roles autenticados (Rol 3)
+    // ========================================================
+    if (pathname === '/admin/acceso-denegado') {
+      if (rol === 3 || rol === 4) {
+        return NextResponse.next();
+      }
+    }
+
+    // ========================================================
+    // REGLA DE GUARDIA RBAC SUPERADMIN (US-007 / US-009 / US-013):
+    // La ruta /admin/personal es exclusiva de Superadmin (IdRol = 4).
+    // Si un Rol 3 (Admin de Depto) intenta acceder, debe ser redirigido a una página de acceso denegado.
     // ========================================================
     if (pathname.startsWith('/admin') && rol !== 4) {
       console.warn(`[Security Middleware] Acceso denegado a ruta de gestión /admin para rol ${rol} (${payload.email})`);
-      return NextResponse.redirect(new URL('/dashboard?error=forbidden_admin_access', request.url));
+      return NextResponse.redirect(new URL('/admin/acceso-denegado', request.url));
     }
 
     // ========================================================
