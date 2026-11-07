@@ -9,8 +9,8 @@
  * - Pantalla inicial institucional SplashView (#0A3D62).
  */
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, AppState, AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../providers/AuthProvider';
 import { SplashView } from '../views/SplashView';
@@ -19,7 +19,36 @@ import { CrearReporteView } from '../views/CrearReporteView';
 import { BandejaOrdenesView } from '../views/BandejaOrdenesView';
 
 export const AppNavigator: React.FC = () => {
-  const { currentScreen } = useAuth();
+  const { currentScreen, token, authService, cerrarSesion, setRoleWarning } = useAuth();
+
+  // Route Guard reactivo: Si la aplicación vuelve al primer plano o cambia la pantalla,
+  // comprueba que el token siga vigente y no haya expirado (US-018)
+  useEffect(() => {
+    let activo = true;
+
+    const verificarGuardia = async () => {
+      if (currentScreen === 'crearReporte' || currentScreen === 'bandejaOrdenes') {
+        const esValido = await authService.validarTokenActivo(token || undefined);
+        if (!esValido && activo) {
+          setRoleWarning('Tu sesión ha expirado. Por favor, ingresa tus credenciales nuevamente.');
+          await cerrarSesion();
+        }
+      }
+    };
+
+    verificarGuardia();
+
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        verificarGuardia();
+      }
+    });
+
+    return () => {
+      activo = false;
+      subscription.remove();
+    };
+  }, [currentScreen, token, authService, cerrarSesion, setRoleWarning]);
 
   const renderCurrentView = () => {
     switch (currentScreen) {

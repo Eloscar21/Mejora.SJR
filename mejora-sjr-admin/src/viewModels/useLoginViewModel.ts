@@ -34,10 +34,12 @@ export function useLoginViewModel(authService: IAuthService = defaultAuthService
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'unauthorized_role') {
+      authService.logout();
       setErrorMessage(
         'Acceso denegado: Tu rol (Ciudadano o Trabajador) no tiene permisos para ingresar al Panel Administrativo Web. Este panel es exclusivo para Administradores de Departamento y Superadmins.'
       );
     } else if (errorParam === 'session_expired') {
+      authService.logout();
       setInfoMessage('Tu sesión ha expirado o no es válida. Por favor, ingresa tus credenciales nuevamente.');
     }
   }, [searchParams]);

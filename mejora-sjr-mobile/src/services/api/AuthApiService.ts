@@ -144,4 +144,21 @@ export class AuthApiService implements IAuthService {
       return null;
     }
   }
+
+  /**
+   * Valida si un token cuenta con formato válido, no ha expirado y no presenta falla de estructura (US-018)
+   */
+  async validarTokenActivo(tokenParam?: string): Promise<boolean> {
+    const token = tokenParam || (await this.obtenerToken());
+    if (!token) return false;
+
+    const decoded = this.decodificarToken(token);
+    if (!decoded || !decoded.idRol) return false;
+
+    const exp = decoded.exp;
+    if (typeof exp !== 'number' || !Number.isFinite(exp)) return false;
+
+    const now = Math.floor(Date.now() / 1000);
+    return exp > now;
+  }
 }

@@ -187,6 +187,20 @@ export class MockAuthService implements IAuthService {
     }
   }
 
+  async validarTokenActivo(tokenParam?: string): Promise<boolean> {
+    const token = tokenParam || (await this.obtenerToken());
+    if (!token) return false;
+
+    const decoded = this.decodificarToken(token);
+    if (!decoded || !decoded.idRol) return false;
+
+    const exp = decoded.exp;
+    if (typeof exp !== 'number' || !Number.isFinite(exp)) return false;
+
+    const now = Math.floor(Date.now() / 1000);
+    return exp > now;
+  }
+
   private generarMockJwt(claims: { idUsuario: number; email: string; idRol: number; idDepartamento: number | null }): string {
     const header = encodeBase64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const now = Math.floor(Date.now() / 1000);

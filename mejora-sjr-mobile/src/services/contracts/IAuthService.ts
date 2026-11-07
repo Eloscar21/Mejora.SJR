@@ -22,4 +22,5 @@ export interface IAuthService {
   obtenerToken(): Promise<string | null>;
   obtenerUsuario(): Promise<UsuarioSession | null>;
   decodificarToken(token?: string): DecodedToken | null;
+  validarTokenActivo(token?: string): Promise<boolean>;
 }

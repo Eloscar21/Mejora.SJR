@@ -19,11 +19,8 @@ export function useSplashViewModel() {
         if (!isMounted) return;
 
         if (token) {
-          const decoded = authService.decodificarToken(token);
-          const exp = decoded?.exp;
-          // exp usa segundos; un payload ilegible o sin vencimiento válido
-          // tampoco permite restaurar la sesión local.
-          if (typeof exp !== 'number' || !Number.isFinite(exp) || exp <= Date.now() / 1000) {
+          const esValido = await authService.validarTokenActivo(token);
+          if (!esValido) {
             await authService.logout();
             if (isMounted) setCurrentScreen('auth');
             return;
