@@ -11,6 +11,10 @@ const config: Config = {
     extend: {
       colors: {
         sjr: {
+          primary: '#0A3D62',
+          'primary-dark': '#072740',
+          'primary-light': '#165B90',
+          cantera: '#D97706',
           navy: '#0b132b',
           'navy-dark': '#060a17',
           'navy-light': '#1c2541',

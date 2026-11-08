@@ -22,6 +22,7 @@ import type { Empleado } from '../../models/empleado.types';
 import type { IPersonalServices } from '../../services/contracts/IPersonalServices';
 import type { usePersonalTableViewModel } from '../../viewModels/usePersonalTableViewModel';
 import { PersonalFormularios } from '../../providers/PersonalFormularios';
+import { IntercepcionErrorView } from '../errors/IntercepcionErrorView';
 
 interface PersonalDataGridProps {
   viewModel: ReturnType<typeof usePersonalTableViewModel>;
@@ -62,19 +63,9 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
     );
   }
 
-  // 2. Bloqueo RBAC si no es Superadmin (Rol 4)
+  // 2. Bloqueo RBAC si no es Superadmin (Rol 4) -> Vista Corporativa 403 (#0A3D62) (US-015)
   if (!vm.puedeGestionar) {
-    return (
-      <div className="p-8 max-w-2xl mx-auto my-12 bg-white rounded-2xl border border-red-200 shadow-sm text-center space-y-4">
-        <div className="h-16 w-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-          <ShieldAlert className="h-8 w-8" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-900">Acceso Restringido</h2>
-        <p className="text-sm text-slate-600 leading-relaxed">
-          {vm.errorAcceso || 'No cuentas con los permisos de Superadministrador (IdRol = 4) para gestionar personal municipal.'}
-        </p>
-      </div>
-    );
+    return <IntercepcionErrorView codigo={403} modo="embebido" />;
   }
 
   return (

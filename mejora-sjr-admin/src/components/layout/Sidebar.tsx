@@ -33,11 +33,11 @@ export const Sidebar: React.FC = () => {
 
   const handleLogout = () => {
     authService.logout();
-    router.push('/login');
+    router.replace('/login');
   };
 
   const navItems = [
-    { label: 'Dashboard & JWT', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Dashboard Ejecutivo', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Personal Municipal', href: '/admin/personal', icon: Users, badge: 'US-009' },
     { label: 'Incidencias', href: '/dashboard/incidencias', icon: AlertCircle, badge: 'Próximamente' },
     { label: 'Catálogos', href: '/dashboard/catalogos', icon: Database, badge: 'US-002' },

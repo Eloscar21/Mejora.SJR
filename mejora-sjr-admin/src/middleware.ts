@@ -54,46 +54,59 @@ export function middleware(request: NextRequest) {
   // 2. Proteger rutas del dashboard y administración (/admin)
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
     if (!token) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('error', 'session_expired');
-      return NextResponse.redirect(loginUrl);
+      const unauthorizedUrl = new URL('/no-autorizado', request.url);
+      unauthorizedUrl.searchParams.set('motivo', 'sesion_requerida');
+      unauthorizedUrl.searchParams.set('origen', pathname);
+      return NextResponse.redirect(unauthorizedUrl);
     }
 
     const payload = decodeJwtPayload(token);
 
-    // Token malformado o ilegible
+    // Token malformado o ilegible -> Vista Corporativa 401 Unauthorized (US-015)
     if (!payload || !payload.idRol) {
-      const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url));
+      const unauthorizedUrl = new URL('/no-autorizado', request.url);
+      unauthorizedUrl.searchParams.set('motivo', 'token_invalido');
+      unauthorizedUrl.searchParams.set('origen', pathname);
+      const response = NextResponse.redirect(unauthorizedUrl);
       response.cookies.delete(TOKEN_COOKIE_NAME);
       return response;
     }
 
-    // Verificar expiración del token
+    // Verificar expiración del token -> Vista Corporativa 401 Unauthorized (US-015)
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {
-      const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url));
+      const expiredUrl = new URL('/no-autorizado', request.url);
+      expiredUrl.searchParams.set('motivo', 'sesion_expirada');
+      expiredUrl.searchParams.set('origen', pathname);
+      const response = NextResponse.redirect(expiredUrl);
       response.cookies.delete(TOKEN_COOKIE_NAME);
       return response;
     }
 
     // ========================================================
-    // REGLA FUNDAMENTAL DE NEGOCIO (US-005 / US-013):
+    // REGLA FUNDAMENTAL DE NEGOCIO (US-005 / US-013 / US-015):
     // Bloquear Roles 1 (Ciudadano) y 2 (Trabajador)
-    // Si intentan acceder a /admin/* o /dashboard/*, deben ser expulsados inmediatamente
+    // Si intentan acceder a /admin/* o /dashboard/*, el Route Guard los expulsa
+    // hacia la pantalla corporativa (#0A3D62) 403 Forbidden indicando falta de privilegios.
     // ========================================================
     const rol = payload.idRol;
     if (rol === 1 || rol === 2) {
       console.warn(`[Security Middleware] Intento de acceso bloqueado para rol ${rol} (${payload.email}) en ${pathname}`);
-      
-      const response = NextResponse.redirect(new URL('/login?error=unauthorized_role', request.url));
+
+      const forbiddenUrl = new URL('/acceso-denegado', request.url);
+      forbiddenUrl.searchParams.set('motivo', 'rol_restringido');
+      forbiddenUrl.searchParams.set('rol', String(rol));
+      forbiddenUrl.searchParams.set('origen', pathname);
+
+      const response = NextResponse.redirect(forbiddenUrl);
       // Se elimina la cookie para limpiar la sesión no autorizada de inmediato
       response.cookies.delete(TOKEN_COOKIE_NAME);
       return response;
     }
 
     // ========================================================
-    // REGLA DE GESTIÓN Y GUARDIA RBAC (US-013):
-    // La página informativa /admin/acceso-denegado está disponible para roles autenticados (Rol 3)
+    // REGLA DE GESTIÓN Y GUARDIA RBAC (US-013 / US-015):
+    // La página informativa /admin/acceso-denegado está disponible para roles autenticados (Rol 3 y 4)
     // ========================================================
     if (pathname === '/admin/acceso-denegado') {
       if (rol === 3 || rol === 4) {
@@ -102,13 +115,17 @@ export function middleware(request: NextRequest) {
     }
 
     // ========================================================
-    // REGLA DE GUARDIA RBAC SUPERADMIN (US-007 / US-009 / US-013):
+    // REGLA DE GUARDIA RBAC SUPERADMIN (US-007 / US-009 / US-013 / US-015):
     // La ruta /admin/personal es exclusiva de Superadmin (IdRol = 4).
-    // Si un Rol 3 (Admin de Depto) intenta acceder, debe ser redirigido a una página de acceso denegado.
+    // Si un Rol 3 (Admin de Depto) intenta acceder, cae en la vista corporativa 403 (#0A3D62).
     // ========================================================
     if (pathname.startsWith('/admin') && rol !== 4) {
       console.warn(`[Security Middleware] Acceso denegado a ruta de gestión /admin para rol ${rol} (${payload.email})`);
-      return NextResponse.redirect(new URL('/admin/acceso-denegado', request.url));
+      const deniedUrl = new URL('/admin/acceso-denegado', request.url);
+      deniedUrl.searchParams.set('motivo', 'privilegios_superadmin');
+      deniedUrl.searchParams.set('rol', String(rol));
+      deniedUrl.searchParams.set('origen', pathname);
+      return NextResponse.redirect(deniedUrl);
     }
 
     // ========================================================
@@ -128,8 +145,13 @@ export function middleware(request: NextRequest) {
       });
     }
 
-    // Cualquier otro rol no reconocido
-    return NextResponse.redirect(new URL('/login?error=unauthorized_role', request.url));
+    // Cualquier otro rol no reconocido -> Vista Corporativa 403 Forbidden (US-015)
+    const fallbackForbiddenUrl = new URL('/acceso-denegado', request.url);
+    fallbackForbiddenUrl.searchParams.set('motivo', 'rol_restringido');
+    fallbackForbiddenUrl.searchParams.set('origen', pathname);
+    const fallbackResponse = NextResponse.redirect(fallbackForbiddenUrl);
+    fallbackResponse.cookies.delete(TOKEN_COOKIE_NAME);
+    return fallbackResponse;
   }
 
   // 3. Si un usuario ya logueado con rol válido entra a /login, llevarlo al dashboard

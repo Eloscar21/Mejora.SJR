@@ -67,20 +67,11 @@ export function useLoginViewModel(authService: IAuthService = defaultAuthService
 
     try {
       // 1. Llamar al servicio de autenticación
-      const response = await authService.login({ email, password });
-      
-      // 2. Comprobación del rol en el cliente antes de redirigir (Defensa en profundidad)
-      const rol = response.data?.usuario?.idRol;
-      if (rol === 1 || rol === 2) {
-        authService.logout();
-        setErrorMessage(
-          'Acceso restringido: Los perfiles de Ciudadano y Trabajador solo pueden operar desde la Aplicación Móvil.'
-        );
-        setIsLoading(false);
-        return;
-      }
+      await authService.login({ email, password });
 
-      // 3. Redirigir al panel principal
+      // 2. Navegar hacia /dashboard: el Edge Route Guard (middleware.ts) valida la sesión
+      //    y, si el perfil no cuenta con privilegios (Roles 1 o 2), lo intercepta y envía
+      //    a la vista institucional corporativa 403 (/acceso-denegado) (US-015).
       router.push('/dashboard');
     } catch (err: any) {
       // Si la API falla por conexión y no hay backend arriba, intentar con Mock transparente
@@ -88,16 +79,7 @@ export function useLoginViewModel(authService: IAuthService = defaultAuthService
         try {
           console.warn('[LoginViewModel] Backend no alcanzable, recurriendo a MockAuthService...');
           const mockService = new MockAuthService();
-          const mockResp = await mockService.login({ email, password });
-          const mockRol = mockResp.data.usuario.idRol;
-          if (mockRol === 1 || mockRol === 2) {
-            mockService.logout();
-            setErrorMessage(
-              'Acceso restringido: Los perfiles de Ciudadano y Trabajador solo pueden operar desde la Aplicación Móvil.'
-            );
-            setIsLoading(false);
-            return;
-          }
+          await mockService.login({ email, password });
           router.push('/dashboard');
           return;
         } catch (mockErr: any) {
