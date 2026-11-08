@@ -1,80 +1,54 @@
-/**
- * AppNavigator.tsx
- * Orquestador principal de navegación para Mejora SJR Mobile.
- * 
- * Reglas de US-003:
- * - Decodifica el token JWT y conmuta dinámicamente entre vistas según el rol:
- *   - Rol 1 (Ciudadano) -> CrearReporteView
- *   - Rol 2 (Trabajador) -> BandejaOrdenesView
- * - Pantalla inicial institucional SplashView (#0A3D62).
- */
-
-import React, { useEffect } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../providers/AuthProvider';
+import { MOBILE_ROUTES, type RootStackParamList } from '../models/navigation.types';
+import { useNavigationViewModel } from '../viewModels/useNavigationViewModel';
 import { SplashView } from '../views/SplashView';
-import { AuthView } from '../views/AuthView';
-import { CrearReporteView } from '../views/CrearReporteView';
-import { BandejaOrdenesView } from '../views/BandejaOrdenesView';
+import { SessionClosingView } from '../views/SessionClosingView';
+import { COLORS } from '../constants/theme';
+import { AuthStack } from './AuthStack';
+import { CitizenStack } from './CitizenStack';
+import { WorkerStack } from './WorkerStack';
 
-export const AppNavigator: React.FC = () => {
-  const { currentScreen, token, authService, cerrarSesion, setRoleWarning } = useAuth();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: COLORS.primary,
+    background: COLORS.background,
+    card: COLORS.surface,
+    text: COLORS.textPrimary,
+    border: COLORS.border,
+  },
+};
 
-  // Route Guard reactivo: Si la aplicación vuelve al primer plano o cambia la pantalla,
-  // comprueba que el token siga vigente y no haya expirado (US-018)
-  useEffect(() => {
-    let activo = true;
-
-    const verificarGuardia = async () => {
-      if (currentScreen === 'crearReporte' || currentScreen === 'bandejaOrdenes') {
-        const esValido = await authService.validarTokenActivo(token || undefined);
-        if (!esValido && activo) {
-          setRoleWarning('Tu sesión ha expirado. Por favor, ingresa tus credenciales nuevamente.');
-          await cerrarSesion();
-        }
-      }
-    };
-
-    verificarGuardia();
-
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        verificarGuardia();
-      }
-    });
-
-    return () => {
-      activo = false;
-      subscription.remove();
-    };
-  }, [currentScreen, token, authService, cerrarSesion, setRoleWarning]);
-
-  const renderCurrentView = () => {
-    switch (currentScreen) {
-      case 'splash':
-        return <SplashView />;
-      case 'auth':
-        return <AuthView />;
-      case 'crearReporte':
-        return <CrearReporteView />;
-      case 'bandejaOrdenes':
-        return <BandejaOrdenesView />;
-      default:
-        return <AuthView />;
-    }
-  };
+/** Monta un único árbol de rutas a partir de la sesión; no ejecuta validaciones ni HTTP. */
+export function AppNavigator() {
+  const { destination, sessionKey, sessionCloseStatus, sessionCloseError, reintentarCierre } = useNavigationViewModel();
 
   return (
     <View style={styles.container}>
-      <StatusBar style={currentScreen === 'splash' ? 'light' : 'dark'} />
-      {renderCurrentView()}
+      <StatusBar style={destination === 'splash' ? 'light' : 'dark'} />
+      {destination === 'splash' ? <SplashView /> : destination === 'closing' ? (
+        <SessionClosingView error={sessionCloseError} isBusy={sessionCloseStatus !== 'failed'} onRetry={reintentarCierre} />
+      ) : (
+        <NavigationContainer theme={theme}>
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            {destination === 'citizen' ? (
+              <RootStack.Screen name={MOBILE_ROUTES.citizen.stack} component={CitizenStack} navigationKey={sessionKey} />
+            ) : destination === 'worker' ? (
+              <RootStack.Screen name={MOBILE_ROUTES.worker.stack} component={WorkerStack} navigationKey={sessionKey} />
+            ) : (
+              <RootStack.Screen name={MOBILE_ROUTES.auth.stack} component={AuthStack} navigationKey={sessionKey} />
+            )}
+          </RootStack.Navigator>
+        </NavigationContainer>
+      )}
     </View>
   );
-};
+}
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+const styles = StyleSheet.create({ container: { flex: 1 } });

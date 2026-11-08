@@ -22,7 +22,15 @@ export interface ReporteErrors {
 }
 
 export function useReporteViewModel() {
-  const { catalogoService, session, cerrarSesion } = useAuth();
+  const { catalogoService, session, cerrarSesion: cerrarSesionActual } = useAuth();
+
+  const cerrarSesion = useCallback(async () => {
+    try {
+      await cerrarSesionActual();
+    } catch {
+      // El proveedor representa el fallo en SessionClosingView y permite reintentar.
+    }
+  }, [cerrarSesionActual]);
 
   // Estados de Catálogos (US-004)
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);

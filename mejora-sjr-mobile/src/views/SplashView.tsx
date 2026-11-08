@@ -13,13 +13,12 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import { useSplashViewModel } from '../viewModels/useSplashViewModel';
 import { SPACING, RADIUS } from '../constants/theme';
 
 export const SplashView: React.FC = () => {
-  const { continuarAlInicio } = useSplashViewModel();
+  useSplashViewModel();
 
   return (
     <View style={styles.container}>
@@ -46,12 +45,6 @@ export const SplashView: React.FC = () => {
         <ActivityIndicator size="large" color="#FFFFFF" />
         <Text style={styles.loadingText}>Verificando credenciales seguras...</Text>
 
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={continuarAlInicio}
-        >
-          <Text style={styles.skipButtonText}>Continuar al Inicio ➔</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -131,15 +124,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: SPACING.sm,
     fontWeight: '500',
-  },
-  skipButton: {
-    marginTop: SPACING.md,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-  },
-  skipButtonText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

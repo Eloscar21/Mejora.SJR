@@ -46,6 +46,8 @@ export interface AuthResponse {
   data: AuthResponseData;
 }
 
+export type SessionCloseStatus = 'idle' | 'pending' | 'failed';
+
 export const ROLES_SJR = {
   1: 'Ciudadano',
   2: 'Trabajador de Campo',

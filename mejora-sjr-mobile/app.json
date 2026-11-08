@@ -12,6 +12,9 @@
       "adaptiveIcon": {
         "backgroundColor": "#0A3D62"
       }
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

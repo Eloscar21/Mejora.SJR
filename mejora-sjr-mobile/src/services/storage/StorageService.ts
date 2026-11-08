@@ -1,9 +1,10 @@
 /**
  * StorageService.ts
- * Implementación de IStorageService con soporte universal (Web localStorage / Mobile memory fallback).
+ * Implementación web de IStorageService (localStorage / memoria si no está disponible).
+ * Android/iOS resuelven StorageService.native.ts y utilizan SecureStore (US-016).
  * 
  * Principios aplicados:
- * - LSP (Liskov Substitution Principle): Puede sustituirse por SecureStore sin alterar el sistema.
+ * - LSP (Liskov Substitution Principle): Expone el mismo contrato que el adaptador nativo.
  * - SRP: Encargado único de la persistencia de pares clave-valor.
  */
 

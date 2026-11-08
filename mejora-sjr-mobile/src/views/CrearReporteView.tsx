@@ -1,24 +1,9 @@
-/**
- * CrearReporteView.tsx
- * Pantalla de "Crear Reporte / Nuevo Reporte" para Ciudadanos (Rol 1) con Pickers de Catálogos (US-004).
- * 
- * Reglas de US-004:
- * - Renderiza el menú desplegable (Picker) consumiendo los catálogos oficiales de US-002 (Departamentos y Categorías).
- * - Selección de Departamento padre y Categoría dependiente con resolución de llave foránea.
- * - Validación visual en rojo si se omite algún campo requerido.
- */
-
 import React from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Modal,
-  Image,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, Modal, Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReporteViewModel } from '../viewModels/useReporteViewModel';
 import { CustomPicker } from '../components/CustomPicker';
 import { CustomInput } from '../components/CustomInput';
@@ -26,205 +11,213 @@ import { CustomButton } from '../components/CustomButton';
 import { RoleBadge } from '../components/RoleBadge';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
 
+interface ReportSectionProps {
+  number: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}
+
+/** Agrupa contenido de presentación; no valida campos ni coordina servicios. */
+function ReportSection({ number, title, description, children }: ReportSectionProps) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeading}>
+        <View style={styles.sectionNumber}><Text style={styles.sectionNumberText}>{number}</Text></View>
+        <View style={styles.headingContent}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.sectionDescription}>{description}</Text>
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** Formulario ciudadano: representa el ViewModel y señala las simulaciones de US-017. */
 export const CrearReporteView: React.FC = () => {
   const {
-    session,
-    departamentosItems,
-    categoriasItems,
-    isLoadingCatalogos,
-    errorCatalogos,
-    selectedDepartamento,
-    selectedCategoria,
-    descripcion,
-    direccionReferencia,
-    coordenadas,
-    fotoEvidenciaUri,
-    errors,
-    isSubmitting,
-    folioCreado,
-    handleDepartamentoChange,
-    handleCategoriaChange,
-    handleDescripcionChange,
-    handleDireccionChange,
-    handleAdjuntarFoto,
-    handleEliminarFoto,
-    handleSubmitReporte,
-    cerrarModalExito,
-    cerrarSesion,
+    session, departamentosItems, categoriasItems, isLoadingCatalogos, errorCatalogos,
+    selectedDepartamento, selectedCategoria, descripcion, direccionReferencia,
+    coordenadas, fotoEvidenciaUri, errors, isSubmitting, folioCreado, cargarCatalogos,
+    handleDepartamentoChange, handleCategoriaChange, handleDescripcionChange,
+    handleDireccionChange, handleAdjuntarFoto, handleEliminarFoto,
+    handleSubmitReporte, cerrarModalExito, cerrarSesion,
   } = useReporteViewModel();
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Barra Superior de Usuario */}
-      <View style={styles.topBar}>
-        <View style={styles.userProfile}>
-          <Text style={styles.userName}>{session?.nombre || 'Ciudadano'}</Text>
-          <RoleBadge idRol={session?.idRol || 1} idDepartamento={session?.idDepartamento} />
-        </View>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={cerrarSesion}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Banner Informativo */}
-        <View style={styles.bannerContainer}>
-          <Text style={styles.bannerTitle}>Levantamiento de Reporte</Text>
-          <Text style={styles.bannerSubtitle}>
-            Reporta anomalías en vía pública, agua o alumbrado en San Juan del Río.
-          </Text>
-        </View>
-
-        {errorCatalogos && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorBoxText}>⚠️ {errorCatalogos}</Text>
-          </View>
-        )}
-
-        {/* Tarjeta del Formulario */}
-        <View style={styles.formCard}>
-          <Text style={styles.sectionTitle}>1. Clasificación Municipal (US-004)</Text>
-
-          {/* Menú Desplegable (Picker) de Departamento */}
-          <CustomPicker
-            label="Dependencia / Departamento Responsable"
-            placeholder="-- Selecciona un Departamento --"
-            items={departamentosItems}
-            selectedValue={selectedDepartamento}
-            onValueChange={handleDepartamentoChange}
-            isLoading={isLoadingCatalogos}
-            hasError={Boolean(errors.departamento)}
-            errorMessage={errors.departamento}
-          />
-
-          {/* Menú Desplegable (Picker) de Categoría */}
-          <CustomPicker
-            label="Categoría de la Incidencia"
-            placeholder={
-              selectedDepartamento
-                ? '-- Selecciona una Categoría --'
-                : '-- Selecciona primero un Departamento --'
-            }
-            items={categoriasItems}
-            selectedValue={selectedCategoria}
-            onValueChange={handleCategoriaChange}
-            isLoading={isLoadingCatalogos}
-            hasError={Boolean(errors.categoria)}
-            errorMessage={errors.categoria}
-          />
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>2. Detalle y Evidencia</Text>
-
-          {/* Descripción de la Incidencia */}
-          <CustomInput
-            label="Descripción de la Problemática"
-            placeholder="Describe qué ocurre, gravedad y puntos de referencia cercanos..."
-            value={descripcion}
-            onChangeText={handleDescripcionChange}
-            multiline
-            numberOfLines={4}
-            style={styles.textArea}
-            hasError={Boolean(errors.descripcion)}
-            errorMessage={errors.descripcion}
-            helperText={`${descripcion.length} caracteres (mínimo 10)`}
-          />
-
-          {/* Dirección de Referencia */}
-          <CustomInput
-            label="Ubicación / Dirección en San Juan del Río"
-            placeholder="Calle, número, colonia o cruces emblemáticos..."
-            value={direccionReferencia}
-            onChangeText={handleDireccionChange}
-            hasError={Boolean(errors.direccion)}
-            errorMessage={errors.direccion}
-          />
-
-          {/* Coordenadas Geográficas Simuladas (GPS SJR) */}
-          <View style={styles.gpsCard}>
-            <View style={styles.gpsRow}>
-              <Text style={styles.gpsIcon}>📍</Text>
-              <View>
-                <Text style={styles.gpsTitle}>Geolocalización GPS (SJR)</Text>
-                <Text style={styles.gpsCoords}>
-                  Lat: {coordenadas.lat}° N • Lng: {coordenadas.lng}° W
-                </Text>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.brand}>
+              <View style={styles.brandMark} accessible={false}><Text style={styles.brandMarkText}>SJR</Text></View>
+              <View style={styles.headingContent}>
+                <Text style={styles.brandName}>Mejora SJR</Text>
+                <Text style={styles.brandCaption}>San Juan del Río</Text>
               </View>
             </View>
-            <View style={styles.gpsBadge}>
-              <Text style={styles.gpsBadgeText}>Precisión Alta</Text>
-            </View>
-          </View>
-
-          {/* Evidencia Fotográfica */}
-          <Text style={styles.evidenceLabel}>Evidencia Fotográfica (Opcional)</Text>
-          {fotoEvidenciaUri ? (
-            <View style={styles.imagePreviewContainer}>
-              <Image source={{ uri: fotoEvidenciaUri }} style={styles.imagePreview} />
-              <TouchableOpacity
-                style={styles.removePhotoButton}
-                onPress={handleEliminarFoto}
-              >
-                <Text style={styles.removePhotoText}>✕ Eliminar Foto</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
             <TouchableOpacity
-              style={styles.addPhotoButton}
-              onPress={handleAdjuntarFoto}
-              activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel="Cerrar sesión"
+              style={styles.logoutButton} onPress={cerrarSesion} activeOpacity={0.7}
             >
-              <Text style={styles.addPhotoIcon}>📷</Text>
-              <Text style={styles.addPhotoText}>Tomar Fotografía / Subir Evidencia</Text>
+              <Text style={styles.logoutText}>Salir</Text>
             </TouchableOpacity>
-          )}
-
-          {/* Botón de Envío */}
-          <CustomButton
-            title="Registrar Incidencia Municipal"
-            onPress={handleSubmitReporte}
-            isLoading={isSubmitting}
-            style={styles.submitButton}
-          />
-        </View>
-      </ScrollView>
-
-      {/* Modal de Éxito con Folio */}
-      <Modal
-        visible={Boolean(folioCreado)}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={cerrarModalExito}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSuccessCard}>
-            <View style={styles.successIconCircle}>
-              <Text style={styles.successCheck}>✓</Text>
-            </View>
-            <Text style={styles.successTitle}>¡Reporte Registrado!</Text>
-            <Text style={styles.successText}>
-              Tu incidencia ha sido turnada al departamento correspondiente para su pronta atención.
-            </Text>
-
-            <View style={styles.folioBox}>
-              <Text style={styles.folioLabel}>NÚMERO DE FOLIO OFICIAL</Text>
-              <Text style={styles.folioNumber}>{folioCreado}</Text>
-            </View>
-
-            <CustomButton
-              title="Aceptar y Continuar"
-              onPress={cerrarModalExito}
-              style={{ width: '100%', marginTop: SPACING.md }}
-            />
           </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        >
+          <View style={styles.content}>
+            <View style={styles.profileRow}>
+              <Text style={styles.userName}>{session?.nombre || 'Ciudadano'}</Text>
+              <RoleBadge idRol={session?.idRol || 1} idDepartamento={session?.idDepartamento} />
+            </View>
+
+            <View style={styles.hero}>
+              <View style={styles.heroAccent} />
+              <Text style={styles.eyebrow}>ESPACIO CIUDADANO</Text>
+              <Text accessibilityRole="header" style={styles.heroTitle}>Nuevo reporte</Text>
+              <Text style={styles.heroDescription}>Cuéntanos qué ocurre y dónde se encuentra el problema.</Text>
+            </View>
+
+            <View style={styles.demoNotice}>
+              <Text style={styles.demoTitle}>Modo demostración</Text>
+              <Text style={styles.demoText}>La foto, la ubicación y el envío son ejemplos. Este formulario no guarda reportes reales.</Text>
+            </View>
+
+            {errorCatalogos && (
+              <View style={styles.errorCard}>
+                <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{errorCatalogos}</Text>
+                <CustomButton
+                  title="Reintentar catálogos" variant="outline" onPress={cargarCatalogos}
+                  isLoading={isLoadingCatalogos} accessibilityRole="button"
+                />
+              </View>
+            )}
+            {errors.general && (
+              <View style={styles.errorCard}>
+                <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{errors.general}</Text>
+              </View>
+            )}
+
+            <ReportSection number="01" title="¿Qué sucede?" description="Clasifica el problema y agrega una descripción.">
+              <CustomPicker
+                label="Departamento" placeholder="Selecciona un departamento"
+                items={departamentosItems} selectedValue={selectedDepartamento}
+                onValueChange={handleDepartamentoChange} isLoading={isLoadingCatalogos}
+                hasError={Boolean(errors.departamento)} errorMessage={errors.departamento}
+              />
+              <CustomPicker
+                label="Categoría" placeholder="Selecciona una categoría"
+                items={categoriasItems} selectedValue={selectedCategoria}
+                onValueChange={handleCategoriaChange} isLoading={isLoadingCatalogos}
+                hasError={Boolean(errors.categoria)} errorMessage={errors.categoria}
+              />
+              <CustomInput
+                label="Descripción" accessibilityLabel="Descripción del problema"
+                placeholder="Por ejemplo: hay una fuga de agua frente al parque."
+                value={descripcion} onChangeText={handleDescripcionChange}
+                multiline numberOfLines={4} style={styles.textArea}
+                hasError={Boolean(errors.descripcion)} errorMessage={errors.descripcion}
+              />
+              <Text style={styles.supportingText}>{descripcion.length} caracteres · mínimo 10</Text>
+            </ReportSection>
+
+            <ReportSection number="02" title="¿Dónde ocurre?" description="Escribe una referencia que ayude a encontrar el lugar.">
+              <CustomInput
+                label="Dirección o referencia" accessibilityLabel="Dirección o referencia del problema"
+                placeholder="Calle, colonia y un punto de referencia"
+                value={direccionReferencia} onChangeText={handleDireccionChange}
+                hasError={Boolean(errors.direccion)} errorMessage={errors.direccion}
+                returnKeyType="done"
+              />
+              <View style={styles.locationCard}>
+                <View style={styles.locationHeading}>
+                  <Text style={styles.locationTitle}>Ubicación de ejemplo</Text>
+                  <View style={styles.exampleBadge}><Text style={styles.exampleBadgeText}>SIMULADA</Text></View>
+                </View>
+                <View style={styles.coordinatesRow}>
+                  <View style={styles.coordinate}>
+                    <Text style={styles.coordinateLabel}>Latitud</Text>
+                    <Text style={styles.coordinateValue}>{coordenadas.lat}</Text>
+                  </View>
+                  <View style={styles.coordinate}>
+                    <Text style={styles.coordinateLabel}>Longitud</Text>
+                    <Text style={styles.coordinateValue}>{coordenadas.lng}</Text>
+                  </View>
+                </View>
+                <Text style={styles.supportingText}>Esta ubicación es ilustrativa. No se está consultando el GPS del dispositivo.</Text>
+              </View>
+            </ReportSection>
+
+            <ReportSection number="03" title="Evidencia de ejemplo" description="Opcional. Explora cómo se verá una fotografía adjunta.">
+              {fotoEvidenciaUri ? (
+                <View style={styles.photoCard}>
+                  <Image
+                    source={{ uri: fotoEvidenciaUri }} style={styles.imagePreview} resizeMode="cover"
+                    accessibilityLabel="Fotografía de ejemplo; no fue tomada con la cámara del dispositivo"
+                  />
+                  <View style={styles.photoCaption}>
+                    <Text style={styles.photoLabel}>Fotografía de demostración</Text>
+                    <Text style={styles.supportingText}>Imagen de ejemplo, no evidencia enviada.</Text>
+                  </View>
+                  <TouchableOpacity
+                    accessibilityRole="button" accessibilityLabel="Quitar fotografía de ejemplo"
+                    style={styles.removePhotoButton} onPress={handleEliminarFoto} activeOpacity={0.7}
+                  >
+                    <Text style={styles.removePhotoText}>Quitar foto de ejemplo</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  accessibilityRole="button" accessibilityLabel="Añadir una fotografía de ejemplo sin abrir la cámara"
+                  style={styles.addPhotoButton} onPress={handleAdjuntarFoto} activeOpacity={0.7}
+                >
+                  <View style={styles.cameraIcon} accessible={false}>
+                    <View style={styles.cameraTop} /><View style={styles.cameraLens} />
+                  </View>
+                  <Text style={styles.addPhotoText}>Añadir foto de ejemplo</Text>
+                  <Text style={styles.supportingText}>No abre la cámara ni solicita permisos.</Text>
+                </TouchableOpacity>
+              )}
+            </ReportSection>
+
+            <View style={styles.submitCard}>
+              <Text style={styles.submitTitle}>Revisa tu ejemplo</Text>
+              <Text style={styles.submitDescription}>Puedes probar la validación y ver un folio de demostración.</Text>
+              <CustomButton
+                title="Simular envío" onPress={handleSubmitReporte} isLoading={isSubmitting}
+                accessibilityRole="button" accessibilityLabel="Simular envío de reporte"
+                accessibilityState={{ busy: isSubmitting }}
+              />
+              <Text style={styles.submitNote}>No se enviará información a una dependencia municipal.</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <Modal visible={Boolean(folioCreado)} transparent animationType="fade" onRequestClose={cerrarModalExito}>
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalCard} accessibilityViewIsModal>
+                <View style={styles.modalIcon} accessible={false}><Text style={styles.modalIconText}>✓</Text></View>
+                <Text accessibilityRole="header" style={styles.modalTitle}>Simulación completada</Text>
+                <Text style={styles.modalDescription}>Así se verá la confirmación. Este reporte no se guardó ni se envió a una dependencia.</Text>
+                <View style={styles.folioBox}>
+                  <Text style={styles.folioLabel}>FOLIO DE DEMOSTRACIÓN</Text>
+                  <Text selectable style={styles.folioNumber}>{folioCreado}</Text>
+                </View>
+                <CustomButton
+                  title="Volver al formulario" onPress={cerrarModalExito}
+                  accessibilityRole="button" style={styles.modalButton}
+                />
+              </View>
+            </ScrollView>
+          </SafeAreaView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -232,262 +225,74 @@ export const CrearReporteView: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    gap: SPACING.sm,
-  },
-  userProfile: {
-    flex: 1,
-    gap: 2,
-    marginRight: SPACING.xs,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  logoutButton: {
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    backgroundColor: '#FEE2E2',
-    flexShrink: 0,
-    alignSelf: 'center',
-  },
-  logoutText: {
-    fontSize: 12,
-    color: COLORS.error,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    padding: SPACING.md,
-  },
-  bannerContainer: {
-    backgroundColor: '#0A3D62',
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.md,
-  },
-  bannerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  bannerSubtitle: {
-    fontSize: 13,
-    color: '#E0F2FE',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  errorBox: {
-    backgroundColor: COLORS.errorBackground,
-    borderWidth: 1,
-    borderColor: COLORS.errorBorder,
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  errorBoxText: {
-    fontSize: 12,
-    color: COLORS.errorText,
-    fontWeight: '600',
-  },
-  formCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginBottom: SPACING.md,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: SPACING.md,
-  },
-  textArea: {
-    height: 90,
-    textAlignVertical: 'top',
-    paddingTop: SPACING.sm,
-  },
-  gpsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  gpsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gpsIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  gpsTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0369A1',
-  },
-  gpsCoords: {
-    fontSize: 11,
-    color: '#0284C7',
-    marginTop: 2,
-  },
-  gpsBadge: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-  },
-  gpsBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0369A1',
-  },
-  evidenceLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  addPhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#94A3B8',
-    borderStyle: 'dashed',
-    borderRadius: RADIUS.md,
-    padding: SPACING.lg,
-    backgroundColor: '#F8FAFC',
-    marginBottom: SPACING.lg,
-  },
-  addPhotoIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  addPhotoText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  imagePreviewContainer: {
-    marginBottom: SPACING.lg,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: RADIUS.md,
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: SPACING.sm,
-    right: SPACING.sm,
-    backgroundColor: 'rgba(220, 38, 38, 0.9)',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.sm,
-  },
-  removePhotoText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  submitButton: {
-    marginTop: SPACING.xs,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(10, 61, 98, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.lg,
-  },
-  modalSuccessCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 380,
-  },
-  successIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  successCheck: {
-    fontSize: 30,
-    color: '#16A34A',
-    fontWeight: '800',
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.primary,
-    marginBottom: SPACING.xs,
-  },
-  successText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: SPACING.md,
-  },
-  folioBox: {
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1.5,
-    borderColor: '#0284C7',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    width: '100%',
-  },
-  folioLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0369A1',
-    letterSpacing: 1,
-  },
-  folioNumber: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0A3D62',
-    marginTop: 2,
-    letterSpacing: 1,
-  },
+  flex: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  headerContent: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: SPACING.md },
+  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, minWidth: 0 },
+  brandMark: { width: 42, height: 42, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: COLORS.accent },
+  brandMarkText: { fontSize: 13, fontWeight: '800', color: COLORS.textInverse },
+  brandName: { fontSize: 17, fontWeight: '700', color: COLORS.primary },
+  brandCaption: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  headingContent: { flex: 1, minWidth: 0 },
+  logoutButton: { minHeight: 48, minWidth: 64, paddingHorizontal: SPACING.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md },
+  logoutText: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+  scrollContent: { padding: SPACING.md, paddingBottom: SPACING.xl },
+  content: { width: '100%', maxWidth: 640, alignSelf: 'center', gap: SPACING.md },
+  profileRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: SPACING.sm },
+  userName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 1 },
+  hero: { backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, padding: SPACING.lg, overflow: 'hidden' },
+  heroAccent: { width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.accent, marginBottom: SPACING.md },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1.6, color: COLORS.textInverse },
+  heroTitle: { fontSize: 29, lineHeight: 37, fontWeight: '700', color: COLORS.textInverse, marginTop: SPACING.sm },
+  heroDescription: { fontSize: 15, lineHeight: 23, color: COLORS.textInverse, marginTop: SPACING.sm },
+  demoNotice: { padding: SPACING.md, gap: SPACING.xs, backgroundColor: COLORS.accentLight, borderLeftWidth: 4, borderLeftColor: COLORS.accent, borderRadius: RADIUS.md },
+  demoTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
+  demoText: { fontSize: 14, lineHeight: 21, color: COLORS.textPrimary },
+  section: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, padding: SPACING.md },
+  sectionHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.lg },
+  sectionNumber: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.primaryMuted, alignItems: 'center', justifyContent: 'center' },
+  sectionNumberText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: COLORS.textPrimary },
+  sectionDescription: { fontSize: 14, lineHeight: 21, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  textArea: { minHeight: 120, height: 120, textAlignVertical: 'top', paddingTop: SPACING.sm },
+  errorCard: { backgroundColor: COLORS.errorBackground, borderWidth: 1, borderColor: COLORS.errorBorder, padding: SPACING.md, borderRadius: RADIUS.md, gap: SPACING.sm },
+  errorText: { fontSize: 14, lineHeight: 21, color: COLORS.errorText },
+  locationCard: { backgroundColor: COLORS.primaryMuted, padding: SPACING.md, borderRadius: RADIUS.md, gap: SPACING.md },
+  locationHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: SPACING.sm },
+  locationTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
+  exampleBadge: { paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, backgroundColor: COLORS.surface, borderRadius: RADIUS.full },
+  exampleBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.7, color: COLORS.primary },
+  coordinatesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+  coordinate: { flexGrow: 1, flexBasis: 100, gap: SPACING.xs },
+  coordinateLabel: { fontSize: 13, color: COLORS.textSecondary },
+  coordinateValue: { fontSize: 17, fontWeight: '600', color: COLORS.primary },
+  supportingText: { fontSize: 13, lineHeight: 20, color: COLORS.textSecondary },
+  addPhotoButton: { alignItems: 'center', padding: SPACING.lg, gap: SPACING.sm, minHeight: 160, borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.primaryLight, borderRadius: RADIUS.md, backgroundColor: COLORS.background },
+  cameraIcon: { width: 38, height: 29, marginTop: SPACING.xs, marginBottom: SPACING.sm, borderWidth: 2, borderColor: COLORS.primary, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  cameraTop: { position: 'absolute', width: 17, height: 5, top: -6, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: COLORS.primary },
+  cameraLens: { width: 13, height: 13, borderWidth: 2, borderColor: COLORS.primary, borderRadius: 7 },
+  addPhotoText: { fontSize: 15, lineHeight: 22, fontWeight: '600', color: COLORS.primary, textAlign: 'center' },
+  photoCard: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, overflow: 'hidden' },
+  imagePreview: { width: '100%', aspectRatio: 1.6, backgroundColor: COLORS.background },
+  photoCaption: { padding: SPACING.md, gap: SPACING.xs },
+  photoLabel: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: COLORS.textPrimary },
+  removePhotoButton: { minHeight: 48, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderTopColor: COLORS.border },
+  removePhotoText: { fontSize: 14, lineHeight: 21, color: COLORS.errorText, fontWeight: '600', textAlign: 'center' },
+  submitCard: { padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, backgroundColor: COLORS.surface, gap: SPACING.sm },
+  submitTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: COLORS.textPrimary },
+  submitDescription: { fontSize: 14, lineHeight: 21, color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  submitNote: { fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.xs },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(10, 31, 48, 0.58)' },
+  modalSafeArea: { flex: 1 },
+  modalScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.lg },
+  modalCard: { width: '100%', maxWidth: 440, borderRadius: RADIUS.lg, backgroundColor: COLORS.surface, padding: SPACING.lg, alignItems: 'center' },
+  modalIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primaryMuted, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
+  modalIconText: { fontSize: 27, fontWeight: '700', color: COLORS.primary },
+  modalTitle: { fontSize: 23, lineHeight: 30, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
+  modalDescription: { fontSize: 15, lineHeight: 23, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.sm },
+  folioBox: { width: '100%', padding: SPACING.md, backgroundColor: COLORS.primaryMuted, borderRadius: RADIUS.md, alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.lg },
+  folioLabel: { fontSize: 11, letterSpacing: 0.8, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
+  folioNumber: { fontSize: 22, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
+  modalButton: { alignSelf: 'stretch', marginTop: SPACING.lg },
 });

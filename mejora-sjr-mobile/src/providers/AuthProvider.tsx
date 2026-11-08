@@ -4,10 +4,10 @@
  * 
  * Principios aplicados:
  * - DIP (Dependency Inversion Principle): Inyecta abstracciones IAuthService, ICatalogoService, IStorageService.
- * - SRP: Mantiene el estado global de la sesión y coordina la navegación de nivel superior.
+ * - SRP: Mantiene la sesión y construye las dependencias; el navegador deriva sus rutas.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { IAuthService } from '../services/contracts/IAuthService';
 import { ICatalogoService } from '../services/contracts/ICatalogoService';
 import { IStorageService } from '../services/contracts/IStorageService';
@@ -16,20 +16,19 @@ import { AuthApiService } from '../services/api/AuthApiService';
 import { MockCatalogoService } from '../services/mocks/MockCatalogoService';
 import { CatalogoApiService } from '../services/api/CatalogoApiService';
 import { defaultStorageService } from '../services/storage/StorageService';
-import { UsuarioSession, DecodedToken } from '../models/auth.types';
-
-export type ScreenName = 'splash' | 'auth' | 'crearReporte' | 'bandejaOrdenes';
+import { UsuarioSession, DecodedToken, SessionCloseStatus } from '../models/auth.types';
 
 interface AuthContextType {
   session: UsuarioSession | null;
   token: string | null;
   decodedToken: DecodedToken | null;
-  isLoading: boolean;
-  currentScreen: ScreenName;
+  isRestoringSession: boolean;
+  sessionCloseStatus: SessionCloseStatus;
+  sessionCloseError: string | null;
   authService: IAuthService;
   catalogoService: ICatalogoService;
   storageService: IStorageService;
-  setCurrentScreen: (screen: ScreenName) => void;
+  finalizarRestauracion: () => void;
   establecerSesion: (token: string, session: UsuarioSession) => Promise<void>;
   roleWarning: string | null;
   setRoleWarning: (message: string | null) => void;
@@ -56,8 +55,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const [session, setSession] = useState<UsuarioSession | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [decodedToken, setDecodedToken] = useState<DecodedToken | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [currentScreen, setCurrentScreen] = useState<ScreenName>('splash');
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const [sessionCloseStatus, setSessionCloseStatus] = useState<SessionCloseStatus>('idle');
+  const [sessionCloseError, setSessionCloseError] = useState<string | null>(null);
+  const closeStatusRef = useRef<SessionCloseStatus>('idle');
+  const closeOperationRef = useRef<Promise<void> | null>(null);
   const [roleWarning, setRoleWarning] = useState<string | null>(null);
 
   // Inicialización de servicios desacoplados
@@ -75,8 +77,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     return customStorageService;
   }, [customStorageService]);
 
+  // Una sola operación de cierre. Login no se habilita hasta terminar el borrado y la limpieza local.
+  const cerrarSesion = useCallback((): Promise<void> => {
+    if (closeOperationRef.current) return closeOperationRef.current;
+
+    closeStatusRef.current = 'pending';
+    setSessionCloseStatus('pending');
+    setSessionCloseError(null);
+    let closed = false;
+
+    const operation = Promise.resolve()
+      .then(() => authService.logout())
+      .then(() => {
+        setSession(null);
+        setToken(null);
+        setDecodedToken(null);
+        closed = true;
+      })
+      .catch((error: unknown) => {
+        closeStatusRef.current = 'failed';
+        setSessionCloseStatus('failed');
+        setSessionCloseError('No se pudo eliminar la sesión guardada. Reintenta para continuar.');
+        throw error;
+      })
+      .finally(() => {
+        closeOperationRef.current = null;
+        if (closed) {
+          closeStatusRef.current = 'idle';
+          setSessionCloseStatus('idle');
+        }
+      });
+
+    closeOperationRef.current = operation;
+    return operation;
+  }, [authService]);
+
   // Una sola política de admisión para login, registro y restauración.
   const establecerSesion = useCallback(async (nuevoToken: string, nuevaSesion: UsuarioSession) => {
+    if (closeStatusRef.current !== 'idle' || closeOperationRef.current) {
+      throw new Error('Espera a que termine el cierre de la sesión anterior.');
+    }
     const decoded = authService.decodificarToken(nuevoToken);
     const rol = decoded?.idRol;
     const rolCoincide = rol === nuevaSesion?.idRol;
@@ -85,16 +125,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       const message = rolCoincide && (rol === 3 || rol === 4)
         ? 'Accede desde el panel web.'
         : 'Perfil no admitido.';
-      // Bloquear el acceso local incluso si el almacenamiento no permite borrar.
-      setSession(null);
-      setToken(null);
-      setDecodedToken(null);
       setRoleWarning(message);
-      setCurrentScreen('auth');
-      setIsLoading(false);
       try {
-        await authService.logout();
+        await cerrarSesion();
       } catch {
+        // La fase failed mantiene bloqueados el login y las rutas privadas.
         setRoleWarning(`${message} No se pudo eliminar la sesión guardada. Intenta de nuevo.`);
       }
       return;
@@ -104,19 +139,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     setToken(nuevoToken);
     setSession(nuevaSesion);
     setDecodedToken(decoded);
-    setCurrentScreen(rol === 1 ? 'crearReporte' : 'bandejaOrdenes');
-    setIsLoading(false);
-  }, [authService]);
+  }, [authService, cerrarSesion]);
 
-  const cerrarSesion = async () => {
-    setIsLoading(true);
-    await authService.logout();
-    setSession(null);
-    setToken(null);
-    setDecodedToken(null);
-    setCurrentScreen('auth');
-    setIsLoading(false);
-  };
+  const finalizarRestauracion = useCallback(() => setIsRestoringSession(false), []);
 
   return (
     <AuthContext.Provider
@@ -124,12 +149,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         session,
         token,
         decodedToken,
-        isLoading,
-        currentScreen,
+        isRestoringSession,
+        sessionCloseStatus,
+        sessionCloseError,
         authService,
         catalogoService,
         storageService,
-        setCurrentScreen,
+        finalizarRestauracion,
         establecerSesion,
         roleWarning,
         setRoleWarning,

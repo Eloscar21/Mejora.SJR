@@ -3,7 +3,7 @@ import { useAuth } from '../providers/AuthProvider';
 
 /** Coordina el arranque; el servicio obtiene los datos y el proveedor restaura la sesión. */
 export function useSplashViewModel() {
-  const { authService, establecerSesion, setCurrentScreen } = useAuth();
+  const { authService, establecerSesion, cerrarSesion, finalizarRestauracion, setRoleWarning } = useAuth();
 
   useEffect(() => {
     let isMounted = true;
@@ -18,22 +18,21 @@ export function useSplashViewModel() {
 
         if (!isMounted) return;
 
-        if (token) {
+        if (token && session) {
           const esValido = await authService.validarTokenActivo(token);
+          if (!isMounted) return;
           if (!esValido) {
-            await authService.logout();
-            if (isMounted) setCurrentScreen('auth');
+            await cerrarSesion();
             return;
           }
-        }
-
-        if (token && session) {
           await establecerSesion(token, session);
-        } else {
-          setCurrentScreen('auth');
+        } else if (token !== null || session !== null) {
+          await cerrarSesion();
         }
       } catch {
-        if (isMounted) setCurrentScreen('auth');
+        if (isMounted) setRoleWarning('No se pudo recuperar la sesión guardada. Inicia sesión de nuevo.');
+      } finally {
+        if (isMounted) finalizarRestauracion();
       }
     };
 
@@ -42,9 +41,5 @@ export function useSplashViewModel() {
     return () => {
       isMounted = false;
     };
-  }, [authService, establecerSesion, setCurrentScreen]);
-
-  const continuarAlInicio = () => setCurrentScreen('auth');
-
-  return { continuarAlInicio };
+  }, [authService, establecerSesion, cerrarSesion, finalizarRestauracion, setRoleWarning]);
 }

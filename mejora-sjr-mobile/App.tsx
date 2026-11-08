@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/providers/AuthProvider';
 import { AppNavigator } from './src/navigation/AppNavigator';
 
@@ -15,9 +16,11 @@ export default function App() {
   const isMockMode = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
   return (
-    <AuthProvider useMock={isMockMode}>
-      <AppNavigator />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider useMock={isMockMode}>
+        <AppNavigator />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
