@@ -84,7 +84,11 @@ class SqlUsuarioRepository extends IUsuarioRepository {
     return result.recordset[0] || null;
   }
 
-  async listarEmpleadosActivos({ roles = [2, 3], idDepartamento } = {}) {
+  async listarEmpleadosActivos({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {
+    return this.obtenerEmpleados({ roles, idDepartamento, soloActivos });
+  }
+
+  async obtenerEmpleados({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {
     const request = this.pool.request();
     let query = `
       SELECT 
@@ -99,9 +103,12 @@ class SqlUsuarioRepository extends IUsuarioRepository {
       FROM Usuarios u
       INNER JOIN Roles r ON u.IdRol = r.IdRol
       LEFT JOIN Departamentos d ON u.IdDepartamento = d.IdDepartamento
-      WHERE u.Activo = 1
-        AND u.IdRol IN (${roles.map(r => Number(r)).join(',')})
+      WHERE u.IdRol IN (${roles.map(r => Number(r)).join(',')})
     `;
+
+    if (soloActivos) {
+      query += ` AND u.Activo = 1`;
+    }
 
     if (idDepartamento) {
       request.input('IdDepartamento', sql.Int, Number(idDepartamento));
@@ -111,7 +118,16 @@ class SqlUsuarioRepository extends IUsuarioRepository {
     query += ` ORDER BY u.Nombre ASC`;
 
     const result = await request.query(query);
-    return result.recordset;
+    return result.recordset.map(record => ({
+      idUsuario: record.idUsuario,
+      nombre: record.nombre,
+      email: record.email,
+      idRol: record.idRol,
+      rolNombre: record.rolNombre,
+      idDepartamento: record.idDepartamento,
+      departamentoNombre: record.departamentoNombre,
+      activo: record.activo === 1 || record.activo === true
+    }));
   }
 
   async actualizarEmpleado(idUsuario, { nombre, idRol, idDepartamento }) {

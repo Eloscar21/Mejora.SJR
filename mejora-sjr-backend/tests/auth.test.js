@@ -186,7 +186,7 @@ describe('US-001: Autenticación y Mocks Multirrol', () => {
 
     it('debe rechazar usuario inactivo (Activo = 0) con 401 (US-012)', async () => {
       // Inactivar usuario en la lista interna del repositorio mock
-      const targetUser = usuarioRepository.usuarios.find(u => u.email === 'ciudadano@test.com');
+      const targetUser = mockRepo.usuarios.find(u => u.email === 'ciudadano@test.com');
       targetUser.activo = 0;
 
       const res = await request(app)

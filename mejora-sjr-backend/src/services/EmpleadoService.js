@@ -94,16 +94,19 @@ class EmpleadoService {
   }
 
   /**
-   * Listar empleados activos respetando el scope de departamento (RBAC)
+   * Listar empleados respetando el scope de departamento (RBAC) y soporte para empleados inactivos (US-008 / US-019)
    */
-  async listarEmpleados(usuarioAutenticado) {
-    const filtros = { roles: [2, 3] };
+  async listarEmpleados(usuarioAutenticado, { soloActivos = false } = {}) {
+    const filtros = { roles: [2, 3], soloActivos };
 
     // Si es Admin de Departamento (Rol 3), filtra forzosamente por su propio departamento
     if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
       filtros.idDepartamento = usuarioAutenticado.idDepartamento;
     }
 
+    if (typeof this.usuarioRepository.obtenerEmpleados === 'function') {
+      return await this.usuarioRepository.obtenerEmpleados(filtros);
+    }
     return await this.usuarioRepository.listarEmpleadosActivos(filtros);
   }
 
