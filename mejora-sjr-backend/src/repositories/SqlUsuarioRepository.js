@@ -103,16 +103,20 @@ class SqlUsuarioRepository extends IUsuarioRepository {
       FROM Usuarios u
       INNER JOIN Roles r ON u.IdRol = r.IdRol
       LEFT JOIN Departamentos d ON u.IdDepartamento = d.IdDepartamento
-      WHERE u.IdRol IN (${roles.map(r => Number(r)).join(',')})
+      WHERE 1 = 1
     `;
+
+    if (Array.isArray(roles) && roles.length > 0) {
+      query += ` AND u.IdRol IN (${roles.map(r => Number(r)).join(',')})`;
+    }
+
+    if (idDepartamento !== undefined && idDepartamento !== null) {
+      request.input('IdDepto', sql.Int, Number(idDepartamento));
+      query += ` AND u.IdDepartamento = @IdDepto`;
+    }
 
     if (soloActivos) {
       query += ` AND u.Activo = 1`;
-    }
-
-    if (idDepartamento) {
-      request.input('IdDepartamento', sql.Int, Number(idDepartamento));
-      query += ` AND u.IdDepartamento = @IdDepartamento`;
     }
 
     query += ` ORDER BY u.Nombre ASC`;

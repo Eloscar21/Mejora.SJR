@@ -43,7 +43,9 @@ const createApp = ({ usuarioRepository, catalogoRepository, jwtSecret } = {}) =>
   // Rutas de la API con dependencias inyectadas
   app.use('/api/auth', createAuthRouter(usuarioRepository, jwtSecret));
   app.use('/api/catalogos', createCatalogoRouter(catalogoRepository));
-  app.use('/api/empleados', createEmpleadoRouter(usuarioRepository, jwtSecret));
+  const empleadoRouter = createEmpleadoRouter(usuarioRepository, jwtSecret);
+  app.use('/api/empleados', empleadoRouter);
+  app.use('/api/usuarios/empleados', empleadoRouter); // Alias US-020
 
   // Health check
   app.get('/health', (req, res) => {

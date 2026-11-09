@@ -40,11 +40,12 @@ class EmpleadoController {
   }
 
   /**
-   * GET /api/empleados
+   * GET /api/empleados (y alias /api/usuarios/empleados)
    */
   async listar(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
     const soloActivos = req.query.soloActivos === 'true';
-    const resultado = await this.empleadoService.listarEmpleados(req.user, { soloActivos });
+    const resultado = await this.empleadoService.listarEmpleados(usuarioAutenticado, { soloActivos });
 
     return res.status(200).json({
       success: true,

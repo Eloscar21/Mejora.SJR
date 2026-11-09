@@ -94,14 +94,25 @@ class EmpleadoService {
   }
 
   /**
-   * Listar empleados respetando el scope de departamento (RBAC) y soporte para empleados inactivos (US-008 / US-019)
+   * Listar empleados respetando el scope de departamento (RBAC Dinámico - US-008 / US-019 / US-020)
+   * - Rol 4 (Superadmin): retorna toda la tabla (roles 2 y 3 o según filtros sin forzar depto).
+   * - Rol 3 (Admin Depto): inyecta dinámicamente WHERE IdDepartamento = @IdDepto AND IdRol = 2.
    */
   async listarEmpleados(usuarioAutenticado, { soloActivos = false } = {}) {
-    const filtros = { roles: [2, 3], soloActivos };
+    const usuario = usuarioAutenticado || {};
+    const rol = usuario.idRol || usuario.IdRol;
 
-    // Si es Admin de Departamento (Rol 3), filtra forzosamente por su propio departamento
-    if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
-      filtros.idDepartamento = usuarioAutenticado.idDepartamento;
+    let filtros = { roles: [2, 3], soloActivos };
+
+    if (rol === 3) {
+      filtros = {
+        roles: [2], // Solo trabajadores subordinados de su depto
+        idDepartamento: usuario.idDepartamento !== undefined ? usuario.idDepartamento : usuario.IdDepartamento,
+        soloActivos
+      };
+    } else if (rol === 4) {
+      // Superadmin: sin restricción departamental, retorna toda la tabla de empleados
+      filtros = { roles: [2, 3], soloActivos };
     }
 
     if (typeof this.usuarioRepository.obtenerEmpleados === 'function') {
