@@ -8,8 +8,10 @@ const { createApp } = require('./app');
 const MockUsuarioRepository = require('./src/repositories/MockUsuarioRepository');
 const MockCatalogoRepository = require('./src/repositories/MockCatalogoRepository');
 const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
+const MockSolicitudPasswordRepository = require('./src/repositories/MockSolicitudPasswordRepository');
 const SqlUsuarioRepository = require('./src/repositories/SqlUsuarioRepository');
 const SqlIncidenciaRepository = require('./src/repositories/SqlIncidenciaRepository');
+const SqlSolicitudPasswordRepository = require('./src/repositories/SqlSolicitudPasswordRepository');
 
 const bootstrap = async () => {
   let config;
@@ -24,6 +26,7 @@ const bootstrap = async () => {
   let usuarioRepository;
   let catalogoRepository;
   let incidenciaRepository;
+  let solicitudPasswordRepository;
 
   // 2. Selección explícita de fuente de datos (Sin fallbacks silenciosos)
   if (config.dataSource === 'azure_sql') {
@@ -33,6 +36,7 @@ const bootstrap = async () => {
       usuarioRepository = new SqlUsuarioRepository(pool);
       catalogoRepository = new MockCatalogoRepository();
       incidenciaRepository = new SqlIncidenciaRepository(pool);
+      solicitudPasswordRepository = new SqlSolicitudPasswordRepository(pool);
       console.log('[Bootstrapper] Repositorios SQL conectados exitosamente a Azure SQL.');
     } catch (dbError) {
       console.error('[Bootstrapper] Fallo crítico al conectar a Azure SQL:', dbError.message);
@@ -44,6 +48,7 @@ const bootstrap = async () => {
     usuarioRepository = new MockUsuarioRepository();
     catalogoRepository = new MockCatalogoRepository();
     incidenciaRepository = new MockIncidenciaRepository();
+    solicitudPasswordRepository = new MockSolicitudPasswordRepository(usuarioRepository);
   }
 
   // 3. Ensamblado de la aplicación Express
@@ -51,6 +56,7 @@ const bootstrap = async () => {
     usuarioRepository,
     catalogoRepository,
     incidenciaRepository,
+    solicitudPasswordRepository,
     jwtSecret: config.jwtSecret
   });
 

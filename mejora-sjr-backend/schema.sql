@@ -81,6 +81,21 @@ CREATE TABLE EvidenciasIncidencia (
     CONSTRAINT CHK_TipoEvidencia CHECK (TipoEvidencia IN ('INICIAL', 'RESOLUCION', 'PROCESO'))
 );
 
+-- BLOQUE 3: RECUPERACIÓN ASISTIDA DE CONTRASEÑAS (US-028)
+CREATE TABLE SolicitudesPassword (
+    IdSolicitud INT IDENTITY(1,1) PRIMARY KEY,
+    IdUsuario INT NOT NULL,
+    Email VARCHAR(150) NOT NULL,
+    Estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE', -- 'PENDIENTE', 'APROBADA', 'RECHAZADA'
+    FechaSolicitud DATETIME NOT NULL DEFAULT GETDATE(),
+    FechaResolucion DATETIME NULL,
+    IdSuperadminResolutor INT NULL,
+    NotasResolucion VARCHAR(255) NULL,
+    CONSTRAINT FK_SolicitudesPassword_Usuario FOREIGN KEY (IdUsuario) REFERENCES Usuarios(IdUsuario),
+    CONSTRAINT FK_SolicitudesPassword_Superadmin FOREIGN KEY (IdSuperadminResolutor) REFERENCES Usuarios(IdUsuario),
+    CONSTRAINT CHK_SolicitudPassword_Estado CHECK (Estado IN ('PENDIENTE', 'APROBADA', 'RECHAZADA'))
+);
+
 GO
 
 -- VISTA DE CONSULTA DESNORMALIZADA (CQRS Lectura Ligera)

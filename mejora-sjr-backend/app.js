@@ -6,7 +6,9 @@ const createAuthRouter = require('./src/routes/authRoutes');
 const createCatalogoRouter = require('./src/routes/catalogoRoutes');
 const createEmpleadoRouter = require('./src/routes/empleadoRoutes');
 const createIncidenciaRouter = require('./src/routes/incidenciaRoutes');
+const createPasswordRecoveryRouter = require('./src/routes/passwordRecoveryRoutes');
 const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
+const MockSolicitudPasswordRepository = require('./src/repositories/MockSolicitudPasswordRepository');
 const errorHandler = require('./src/middlewares/errorHandler');
 
 /**
@@ -18,10 +20,17 @@ const errorHandler = require('./src/middlewares/errorHandler');
  * @param {import('./src/repositories/IUsuarioRepository')} dependencies.usuarioRepository
  * @param {import('./src/repositories/ICatalogoRepository')} dependencies.catalogoRepository
  * @param {import('./src/repositories/IIncidenciaRepository')} [dependencies.incidenciaRepository]
+ * @param {import('./src/repositories/ISolicitudPasswordRepository')} [dependencies.solicitudPasswordRepository]
  * @param {string} [dependencies.jwtSecret]
  * @returns {express.Application}
  */
-const createApp = ({ usuarioRepository, catalogoRepository, incidenciaRepository, jwtSecret } = {}) => {
+const createApp = ({
+  usuarioRepository,
+  catalogoRepository,
+  incidenciaRepository,
+  solicitudPasswordRepository,
+  jwtSecret
+} = {}) => {
   // Exigencia estricta de dependencias: Prohibido usar mocks como fallback silencioso
   if (!usuarioRepository || !catalogoRepository) {
     throw new Error('usuarioRepository y catalogoRepository son obligatorios para construir la aplicación.');
@@ -52,6 +61,9 @@ const createApp = ({ usuarioRepository, catalogoRepository, incidenciaRepository
 
   const resolvedIncidenciaRepo = incidenciaRepository || new MockIncidenciaRepository();
   app.use('/api/incidencias', createIncidenciaRouter(resolvedIncidenciaRepo, catalogoRepository, usuarioRepository, jwtSecret));
+
+  const resolvedSolicitudPasswordRepo = solicitudPasswordRepository || new MockSolicitudPasswordRepository(usuarioRepository);
+  app.use('/api/solicitudes-password', createPasswordRecoveryRouter(resolvedSolicitudPasswordRepo, usuarioRepository, jwtSecret));
 
   // Health check
   app.get('/health', (req, res) => {
