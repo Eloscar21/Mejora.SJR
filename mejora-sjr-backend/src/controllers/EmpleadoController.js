@@ -1,12 +1,6 @@
 // src/controllers/EmpleadoController.js
 'use strict';
 
-/**
- * EmpleadoController (Skinny Controller)
- * Conforme al Prompt Maestro:
- * - Sin try/catch redundantes (el manejador central errorHandler captura excepciones).
- * - Delega 100% de la lógica a EmpleadoService.
- */
 class EmpleadoController {
   /**
    * @param {import('../services/EmpleadoService')} empleadoService
@@ -22,16 +16,12 @@ class EmpleadoController {
     this.desactivar = this.desactivar.bind(this);
   }
 
-  /**
-   * POST /api/empleados
-   */
   async crear(req, res) {
     const { nombre, email, password, idRol, idDepartamento } = req.body;
     const resultado = await this.empleadoService.crearEmpleado(
       { nombre, email, password, idRol, idDepartamento },
       req.user
     );
-
     return res.status(201).json({
       success: true,
       message: 'Empleado creado exitosamente.',
@@ -39,14 +29,10 @@ class EmpleadoController {
     });
   }
 
-  /**
-   * GET /api/empleados (y alias /api/usuarios/empleados)
-   */
   async listar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const soloActivos = req.query.soloActivos === 'true';
     const resultado = await this.empleadoService.listarEmpleados(usuarioAutenticado, { soloActivos });
-
     return res.status(200).json({
       success: true,
       message: 'Empleados recuperados exitosamente.',
@@ -54,9 +40,6 @@ class EmpleadoController {
     });
   }
 
-  /**
-   * PUT /api/empleados/:id
-   */
   async actualizar(req, res) {
     const { id } = req.params;
     const { nombre, idRol, idDepartamento } = req.body;
@@ -65,7 +48,6 @@ class EmpleadoController {
       { nombre, idRol, idDepartamento },
       req.user
     );
-
     return res.status(200).json({
       success: true,
       message: 'Empleado actualizado exitosamente.',
@@ -73,13 +55,9 @@ class EmpleadoController {
     });
   }
 
-  /**
-   * PATCH /api/empleados/:id
-   */
   async desactivar(req, res) {
     const { id } = req.params;
     const resultado = await this.empleadoService.desactivarEmpleado(id, req.user);
-
     return res.status(200).json({
       success: true,
       message: resultado.mensaje
