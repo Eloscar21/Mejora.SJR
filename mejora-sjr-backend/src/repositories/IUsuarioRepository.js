@@ -19,10 +19,19 @@ class IUsuarioRepository {
   }
 
   /**
-   * Lista usuarios activos filtrando por roles de personal (Trabajador y Admin) y opcionalmente por departamento
+   * Lista o consulta empleados (roles 2 y 3) con soporte para empleados activos/inactivos y filtro opcional por departamento (US-008 / US-019).
    * @param {Object} [filtros]
    * @param {number[]} [filtros.roles]
    * @param {number} [filtros.idDepartamento]
+   * @param {boolean} [filtros.soloActivos]
+   */
+  async obtenerEmpleados(filtros) {
+    throw new Error('Método no implementado');
+  }
+
+  /**
+   * Alias retrocompatible de obtenerEmpleados
+   * @param {Object} [filtros]
    */
   async listarEmpleadosActivos(filtros) {
     throw new Error('Método no implementado');

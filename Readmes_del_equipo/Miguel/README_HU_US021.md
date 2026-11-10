@@ -16,10 +16,12 @@ Permitir al administrador de departamento entrar a /admin/personal para consulta
 | --- | --- | --- |
 | Sin JWT válido | Rechazo 401. | Rechazo 401. |
 | Rol 1, rol 2 o desconocido | Rechazo 403. | Rechazo 403. |
-| Rol 3 — Administrador de departamento | Solo trabajadores activos, rol 2, del departamento del JWT. | Rechazo 403. |
-| Rol 4 — Superadmin | Trabajadores y administradores activos de todos los departamentos. | Permitido, sujeto a las validaciones existentes. |
+| Rol 3 — Administrador de departamento | Solo trabajadores, rol 2, del departamento del JWT; activos e inactivos. | Rechazo 403. |
+| Rol 4 — Superadmin | Trabajadores y administradores de todos los departamentos; activos e inactivos. | Permitido, sujeto a las validaciones existentes. |
 
 Esta matriz es la regla vigente de personal para US-021. El middleware admite al rol 3 en /admin/personal y el ViewModel habilita su consulta. La vista muestra el listado y los filtros, sin acciones de creación, edición o baja. El alcance departamental lo aplica el backend, no un filtro de seguridad en el navegador.
+
+La integración con US-019/US-020 conserva el listado de activos e inactivos por defecto, el campo activo booleano y el alias /api/usuarios/empleados. El parámetro soloActivos=true limita el resultado a activos sin ampliar los roles o departamentos autorizados.
 
 La futura asignación de reportes a trabajadores es el contexto de negocio indicado por Miguel. Esta entrega no crea endpoints, formularios ni reglas de asignación de incidencias.
 
@@ -33,21 +35,21 @@ La futura asignación de reportes a trabajadores es el contexto de negocio indic
 | `mejora-sjr-backend/src/middlewares/authMiddleware.js` | Middleware existente: verifica firma y vigencia del JWT, establece req.user y aplica permisos. No fue necesario cambiar su implementación. |
 | `mejora-sjr-backend/src/controllers/EmpleadoController.js` | Adaptador HTTP existente: entrega payload, ID y req.user al servicio y construye la respuesta. No decide el departamento ni consulta SQL. |
 | `mejora-sjr-backend/src/services/EmpleadoService.js` | Exige rol 4 para mutaciones y define el alcance de lectura por actor. Elimina las reglas anteriores que permitían escrituras de rol 3. |
-| `mejora-sjr-backend/src/repositories/IUsuarioRepository.js` | Contrato existente: listarEmpleadosActivos admite filtros de roles/departamento. No cambia. |
-| `mejora-sjr-backend/src/repositories/SqlUsuarioRepository.js` | Implementación existente: aplica los filtros recibidos y parametriza el departamento en SQL. No cambia. |
-| `mejora-sjr-backend/src/repositories/MockUsuarioRepository.js` | Implementación en memoria del mismo contrato, utilizada en las pruebas. No cambia. |
+| `mejora-sjr-backend/src/repositories/IUsuarioRepository.js` | Contrato de US-019: obtenerEmpleados admite roles, departamento y soloActivos; conserva el alias listarEmpleadosActivos. |
+| `mejora-sjr-backend/src/repositories/SqlUsuarioRepository.js` | Implementación de US-019/US-020: aplica filtros, parametriza el departamento y devuelve activo como booleano. |
+| `mejora-sjr-backend/src/repositories/MockUsuarioRepository.js` | Implementación en memoria del mismo contrato y del mapeo booleano, utilizada en las pruebas. |
 | `mejora-sjr-backend/tests/empleadosRbac.test.js` | Regresión de permisos, aislamiento departamental, ausencia de escrituras y llamadas directas al servicio. |
 | `mejora-sjr-backend/tests/auth.test.js` | Prueba existente de login de usuario inactivo. Se corrigió la referencia para modificar mockRepo, la misma instancia entregada al router de autenticación. |
 
 ### Flujo de consulta
 
-1. Llega GET /api/empleados con un JWT Bearer.
+1. Llega GET /api/empleados o su alias /api/usuarios/empleados con un JWT Bearer.
 2. authenticateToken verifica la firma y vigencia. El actor procede del JWT verificado, no de un parámetro enviado por el cliente.
 3. authorizeRoles admite únicamente roles 3 y 4.
-4. El controlador entrega req.user a listarEmpleados del servicio.
+4. El controlador entrega req.usuario o req.user a listarEmpleados del servicio, junto con soloActivos, que solo se activa si la query vale 'true'.
 5. Para rol 3, el servicio exige un departamento numérico entero positivo y establece los filtros roles=[2] e idDepartamento del JWT. Si falta ese dato o tiene formato inválido, devuelve 403 antes de consultar el repositorio.
 6. Para rol 4, establece roles=[2,3] y conserva la consulta de todos los departamentos.
-7. El repositorio inyectado devuelve los empleados activos que corresponden. El controlador responde con success y data.
+7. El servicio propaga soloActivos a obtenerEmpleados del repositorio inyectado. Por defecto devuelve activos e inactivos del alcance autorizado; con soloActivos=true devuelve únicamente activos. El controlador responde con success y data.
 
 La consulta no utiliza idDepartamento, idRol ni roles enviados como query para ampliar el alcance. Una lista sin trabajadores propios es un resultado vacío válido; no activa una consulta global ni datos de otro departamento.
 
@@ -65,8 +67,8 @@ flowchart TD
     Roles --> Metodo{Operacion}
     Metodo -->|GET| Leer[EmpleadoController.listar]
     Leer --> Alcance[EmpleadoService: alcance segun actor]
-    Alcance -->|Rol 3| Propios[Trabajadores activos del departamento del JWT]
-    Alcance -->|Rol 4| Global[Personal activo de todos los departamentos]
+    Alcance -->|Rol 3| Propios[Trabajadores del departamento del JWT]
+    Alcance -->|Rol 4| Global[Personal de todos los departamentos]
     Propios --> Repo[IUsuarioRepository inyectado]
     Global --> Repo
     Repo --> Datos[Respuesta de consulta]
@@ -90,8 +92,8 @@ Las pruebas usan createApp con repositorios mock, un secreto de JWT generado par
 
 La suite específica cubre:
 
-- POST, PUT y PATCH directos de rol 3: 403, sin acceso al repositorio ni modificación de datos.
-- Lectura de cada departamento: solo trabajadores propios activos; excluye administradores, inactivos y otros departamentos.
+- POST, PUT y PATCH directos de rol 3 en ambos endpoints: 403, sin acceso al repositorio ni modificación de datos.
+- Lectura de cada departamento: solo trabajadores propios; excluye administradores y otros departamentos. Incluye activos e inactivos por defecto y filtra activos mediante soloActivos=true.
 - Query que intenta ampliar departamentos/roles: no cambia el alcance autorizado.
 - Departamento ausente o con tipo/formato inválido: 403 antes de consultar.
 - Departamento sin trabajadores: lista vacía.
@@ -103,8 +105,8 @@ La suite específica cubre:
 
 | Comprobación | Resultado |
 | --- | --- |
-| Suite específica de US-021 | 21 pruebas aprobadas. |
-| Suite completa del backend | 76 pruebas aprobadas; 7 suites aprobadas, sin fallos. |
+| Suite específica de US-021 | 25 pruebas aprobadas, incluyendo compatibilidad con US-019/US-020. |
+| Suite completa del backend integrado | 81 pruebas aprobadas; 7 suites aprobadas, sin fallos. |
 | git diff --check | Aprobado. |
 
 La prueba del usuario inactivo utiliza mockRepo, la instancia ya creada e inyectada al router. Modifica sus datos simulados y comprueba el rechazo 401 del login. No crea un segundo repositorio ni se elimina la prueba. La corrección de esa referencia fue acordada con Miguel.
@@ -262,4 +264,6 @@ Ocultar controles mejora la experiencia, pero la prohibición efectiva de escrit
 - [US-010 — Creación de empleados](README_HU_US010.md).
 - [US-011 — Edición y baja](README_HU_US011.md).
 - [US-008 de Isaac — API de empleados](../Isaac/README_HU_008.md).
+- [US-019 de Isaac — Inactivos y mapeo booleano](../Isaac/README_HU_019.md).
+- [US-020 de Isaac — Aislamiento departamental y alias de consulta](../Isaac/README_HU_020.md).
 - [US-007 y US-009 — RBAC y tabla de personal](../Abraham/README_HU_US007_US009.md).

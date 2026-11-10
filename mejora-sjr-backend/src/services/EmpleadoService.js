@@ -95,29 +95,38 @@ class EmpleadoService {
   }
 
   /**
-   * Listar empleados activos respetando el scope de departamento (RBAC)
+   * Listar empleados respetando el scope de departamento (RBAC Dinámico - US-008 / US-019 / US-020)
+   * - Rol 4 (Superadmin): retorna toda la tabla (roles 2 y 3 o según filtros sin forzar depto).
+   * - Rol 3 (Admin Depto): inyecta dinámicamente WHERE IdDepartamento = @IdDepto AND IdRol = 2.
    */
-  async listarEmpleados(usuarioAutenticado) {
-    if (!usuarioAutenticado || ![3, 4].includes(usuarioAutenticado.idRol)) {
+  async listarEmpleados(usuarioAutenticado, { soloActivos = false } = {}) {
+    const rol = usuarioAutenticado?.idRol ?? usuarioAutenticado?.IdRol;
+    if (![3, 4].includes(rol)) {
       const error = new Error('No tienes permisos para consultar empleados.');
       error.statusCode = 403;
       throw error;
     }
 
-    const filtros = { roles: [2, 3] };
+    const filtros = { roles: [2, 3], soloActivos };
 
     // US-021: el administrador solo consulta trabajadores de su propio departamento.
-    if (usuarioAutenticado.idRol === 3) {
-      if (!Number.isInteger(usuarioAutenticado.idDepartamento) || usuarioAutenticado.idDepartamento <= 0) {
+    if (rol === 3) {
+      const idDepartamento = usuarioAutenticado.idDepartamento !== undefined
+        ? usuarioAutenticado.idDepartamento
+        : usuarioAutenticado.IdDepartamento;
+      if (!Number.isInteger(idDepartamento) || idDepartamento <= 0) {
         const error = new Error('Tu sesión no tiene un departamento válido para consultar trabajadores.');
         error.statusCode = 403;
         throw error;
       }
 
       filtros.roles = [2];
-      filtros.idDepartamento = usuarioAutenticado.idDepartamento;
+      filtros.idDepartamento = idDepartamento;
     }
 
+    if (typeof this.usuarioRepository.obtenerEmpleados === 'function') {
+      return await this.usuarioRepository.obtenerEmpleados(filtros);
+    }
     return await this.usuarioRepository.listarEmpleadosActivos(filtros);
   }
 

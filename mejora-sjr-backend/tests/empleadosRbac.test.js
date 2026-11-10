@@ -33,7 +33,10 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
   it.each([
     ['post', '/api/empleados', { nombre: 'Nuevo trabajador', email: 'nuevo@test.com', password: 'Password123!', idRol: 2, idDepartamento: 1 }],
     ['put', '/api/empleados/2', { nombre: 'Cambio indebido', idRol: 2, idDepartamento: 1 }],
-    ['patch', '/api/empleados/2', undefined]
+    ['patch', '/api/empleados/2', undefined],
+    ['post', '/api/usuarios/empleados', { nombre: 'Nuevo trabajador', email: 'nuevo.alias@test.com', password: 'Password123!', idRol: 2, idDepartamento: 1 }],
+    ['put', '/api/usuarios/empleados/2', { nombre: 'Cambio indebido', idRol: 2, idDepartamento: 1 }],
+    ['patch', '/api/usuarios/empleados/2', undefined]
   ])('rechaza %s de rol 3 antes de acceder al repositorio y conserva los datos', async (method, path, body) => {
     const datosPrevios = usuarioRepo.usuarios.map(usuario => ({ ...usuario }));
     const accesos = ['buscarPorEmail', 'buscarPorId', 'crearUsuario', 'actualizarEmpleado', 'desactivarEmpleado']
@@ -51,7 +54,7 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
 
   it.each([1, 2])('rol 3 consulta solo trabajadores activos del departamento %s del JWT', async idDepartamento => {
     const res = await request(app)
-      .get('/api/empleados')
+      .get('/api/empleados?soloActivos=true')
       .set('Authorization', `Bearer ${tokenPara({ ...adminJapam, idDepartamento })}`);
 
     expect(res.status).toBe(200);
@@ -59,7 +62,22 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
     res.body.data.forEach(empleado => {
       expect(empleado.idRol).toBe(2);
       expect(empleado.idDepartamento).toBe(idDepartamento);
-      expect(empleado.activo).toBe(1);
+      expect(empleado.activo).toBe(true);
+      expect(empleado.passwordHash).toBeUndefined();
+    });
+  });
+
+  it('rol 3 recibe activos e inactivos propios por defecto mediante el alias de US-020', async () => {
+    const res = await request(app)
+      .get('/api/usuarios/empleados')
+      .set('Authorization', `Bearer ${tokenPara(adminJapam)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map(empleado => empleado.idUsuario)).toEqual([2, 7]);
+    expect(res.body.data.map(empleado => empleado.activo)).toEqual([true, false]);
+    res.body.data.forEach(empleado => {
+      expect(empleado.idRol).toBe(2);
+      expect(empleado.idDepartamento).toBe(1);
       expect(empleado.passwordHash).toBeUndefined();
     });
   });
@@ -70,11 +88,11 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
       .set('Authorization', `Bearer ${tokenPara(adminJapam)}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.map(empleado => empleado.idUsuario)).toEqual([2]);
+    expect(res.body.data.map(empleado => empleado.idUsuario)).toEqual([2, 7]);
   });
 
   it('devuelve vacío cuando no hay trabajadores propios, sin incluir administradores ni otros departamentos', async () => {
-    usuarioRepo.usuarios = usuarioRepo.usuarios.filter(usuario => usuario.idUsuario !== 2);
+    usuarioRepo.usuarios = usuarioRepo.usuarios.filter(usuario => !(usuario.idRol === 2 && usuario.idDepartamento === 1));
     const res = await request(app)
       .get('/api/empleados')
       .set('Authorization', `Bearer ${tokenPara(adminJapam)}`);
@@ -84,7 +102,7 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
   });
 
   it.each([null, undefined, 0, -1, '1', 1.5])('rechaza departamento inválido %s antes de consultar datos', async idDepartamento => {
-    const consulta = jest.spyOn(usuarioRepo, 'listarEmpleadosActivos');
+    const consulta = jest.spyOn(usuarioRepo, 'obtenerEmpleados');
     const res = await request(app)
       .get('/api/empleados')
       .set('Authorization', `Bearer ${tokenPara({ ...adminJapam, idDepartamento })}`);
@@ -100,11 +118,11 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
       .set('Authorization', `Bearer ${tokenPara({ idUsuario: 4, idRol: 4, idDepartamento: null })}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.map(empleado => empleado.idUsuario).sort((a, b) => a - b)).toEqual([2, 3, 5, 6]);
+    expect(res.body.data.map(empleado => empleado.idUsuario).sort((a, b) => a - b)).toEqual([2, 3, 5, 6, 7]);
   });
 
   it.each([2, 99])('rechaza la consulta del rol no admitido %s', async idRol => {
-    const consulta = jest.spyOn(usuarioRepo, 'listarEmpleadosActivos');
+    const consulta = jest.spyOn(usuarioRepo, 'obtenerEmpleados');
     const res = await request(app)
       .get('/api/empleados')
       .set('Authorization', `Bearer ${tokenPara({ ...adminJapam, idRol })}`);
@@ -117,7 +135,7 @@ describe('US-021: consulta departamental y gestión exclusiva del Superadmin', (
     const token = caso === 'firma ajena'
       ? jwt.sign(adminJapam, randomBytes(32).toString('hex'), { expiresIn: '1h' })
       : tokenPara(adminJapam, { expiresIn: '-1s' });
-    const consulta = jest.spyOn(usuarioRepo, 'listarEmpleadosActivos');
+    const consulta = jest.spyOn(usuarioRepo, 'obtenerEmpleados');
     const res = await request(app)
       .get('/api/empleados')
       .set('Authorization', `Bearer ${token}`);

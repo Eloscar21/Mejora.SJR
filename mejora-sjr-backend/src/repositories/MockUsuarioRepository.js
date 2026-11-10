@@ -84,15 +84,22 @@ class MockUsuarioRepository extends IUsuarioRepository {
     return usuario ? { ...usuario } : null;
   }
 
-  async listarEmpleadosActivos({ roles = [2, 3], idDepartamento } = {}) {
+  async listarEmpleadosActivos({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {
+    return this.obtenerEmpleados({ roles, idDepartamento, soloActivos });
+  }
+
+  async obtenerEmpleados({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {
     return this.usuarios
       .filter(u => {
-        const esActivo = u.activo === 1;
+        const cumpleActivo = soloActivos ? (u.activo === 1 || u.activo === true) : true;
         const cumpleRol = roles.includes(u.idRol);
         const cumpleDepto = idDepartamento ? u.idDepartamento === Number(idDepartamento) : true;
-        return esActivo && cumpleRol && cumpleDepto;
+        return cumpleActivo && cumpleRol && cumpleDepto;
       })
-      .map(({ passwordHash, ...safeUser }) => ({ ...safeUser }));
+      .map(({ passwordHash, ...safeUser }) => ({
+        ...safeUser,
+        activo: safeUser.activo === 1 || safeUser.activo === true
+      }));
   }
 
   async actualizarEmpleado(idUsuario, { nombre, idRol, idDepartamento }) {

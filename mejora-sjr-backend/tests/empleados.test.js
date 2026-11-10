@@ -131,8 +131,19 @@ describe('US-008: API CRUD de Empleados', () => {
     });
   });
 
-  describe('GET /api/empleados (Listar Empleados Activos)', () => {
-    it('Superadmin lista todos los empleados activos (roles 2 y 3)', async () => {
+  describe('GET /api/empleados (Listar Empleados Activos e Inactivos - US-019)', () => {
+    it('Superadmin lista todos los empleados activos e inactivos mapeando booleano activo', async () => {
+      // Desactivamos un empleado para asegurar existencia de inactivos
+      usuarioRepo.usuarios.push({
+        idUsuario: 99,
+        nombre: 'Empleado Inactivo Test',
+        email: 'inactivo@test.com',
+        passwordHash: 'hash',
+        idRol: 2,
+        idDepartamento: 1,
+        activo: 0
+      });
+
       const res = await request(app)
         .get('/api/empleados')
         .set('Authorization', `Bearer ${superadminToken}`);
@@ -143,18 +154,64 @@ describe('US-008: API CRUD de Empleados', () => {
       // Solo deben listarse roles de empleados (2 y 3), no Ciudadanos (1)
       const idsRoles = res.body.data.map(e => e.idRol);
       expect(idsRoles).not.toContain(1);
+
+      // Verificar que el empleado inactivo esté presente y su campo activo sea explícitamente booleano false
+      const empleadoInactivo = res.body.data.find(e => e.idUsuario === 99);
+      expect(empleadoInactivo).toBeDefined();
+      expect(empleadoInactivo.activo).toBe(false);
+
+      // Verificar que los activos sean boolean true
+      const empleadoActivo = res.body.data.find(e => e.idUsuario === 2);
+      expect(empleadoActivo).toBeDefined();
+      expect(empleadoActivo.activo).toBe(true);
     });
 
-    it('Admin de Departamento (Rol 3) solo visualiza empleados de su departamento', async () => {
+    it('Admin de Departamento (Rol 3) solo visualiza trabajadores subordinados (Rol 2) de su departamento (US-020)', async () => {
+      // Agregamos un Admin (Rol 3) del mismo departamento 1 y un Trabajador (Rol 2) de depto 2
+      usuarioRepo.usuarios.push({
+        idUsuario: 101,
+        nombre: 'Otro Admin Depto 1',
+        email: 'admin2.japam@test.com',
+        passwordHash: 'hash',
+        idRol: 3,
+        idDepartamento: 1,
+        activo: 1
+      });
+      usuarioRepo.usuarios.push({
+        idUsuario: 102,
+        nombre: 'Trabajador Obras Depto 2',
+        email: 'trabajador.obras@test.com',
+        passwordHash: 'hash',
+        idRol: 2,
+        idDepartamento: 2,
+        activo: 1
+      });
+
+      // Probando tanto /api/empleados como el alias /api/usuarios/empleados
       const res = await request(app)
-        .get('/api/empleados')
+        .get('/api/usuarios/empleados')
         .set('Authorization', `Bearer ${adminJapamToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
       res.body.data.forEach(empleado => {
         expect(empleado.idDepartamento).toBe(1);
+        expect(empleado.idRol).toBe(2); // Solo trabajadores de su departamento
       });
+    });
+
+    it('Superadmin (Rol 4) obtiene toda la tabla de empleados vía /api/usuarios/empleados (US-020)', async () => {
+      const res = await request(app)
+        .get('/api/usuarios/empleados')
+        .set('Authorization', `Bearer ${superadminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      // Incluye roles 2 y 3 de múltiples departamentos
+      const roles = res.body.data.map(e => e.idRol);
+      expect(roles).toContain(2);
+      expect(roles).toContain(3);
     });
   });
 
@@ -199,13 +256,21 @@ describe('US-008: API CRUD de Empleados', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.message).toMatch(/desactivado/i);
 
-      // Verificar que ya no aparece en el listado de activos
+      // Verificar que ahora tiene activo = false en el listado y que con ?soloActivos=true ya no aparece
       const listado = await request(app)
         .get('/api/empleados')
         .set('Authorization', `Bearer ${superadminToken}`);
 
-      const idsActivos = listado.body.data.map(e => e.idUsuario);
-      expect(idsActivos).not.toContain(2);
+      const empleadoDesactivado = listado.body.data.find(e => e.idUsuario === 2);
+      expect(empleadoDesactivado).toBeDefined();
+      expect(empleadoDesactivado.activo).toBe(false);
+
+      const listadoSoloActivos = await request(app)
+        .get('/api/empleados?soloActivos=true')
+        .set('Authorization', `Bearer ${superadminToken}`);
+
+      const idsSoloActivos = listadoSoloActivos.body.data.map(e => e.idUsuario);
+      expect(idsSoloActivos).not.toContain(2);
     });
 
     it('prohíbe que un usuario se auto-desactive (400)', async () => {

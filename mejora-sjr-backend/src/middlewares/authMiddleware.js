@@ -21,6 +21,7 @@ const authenticateToken = (jwtSecret = process.env.JWT_SECRET) => {
     try {
       const decoded = jwt.verify(token, jwtSecret);
       req.user = decoded;
+      req.usuario = decoded; // Alias estandarizado US-020
       next();
     } catch (err) {
       const error = new Error('Token inválido o expirado.');
