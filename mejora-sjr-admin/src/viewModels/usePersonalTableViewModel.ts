@@ -45,8 +45,9 @@ export function usePersonalTableViewModel(
   // Control de sincronización
   const [version, setVersion] = useState(0);
   const isCargandoRef = useRef(false);
+  const tokenListadoRef = useRef<string | null>(null);
 
-  // 1. Cargar empleados validando sesión y RBAC estricto (Rol 4)
+  // 1. US-021: consultar con rol 3 o 4; la API determina el alcance por departamento.
   useEffect(() => {
     let cancelado = false;
     isCargandoRef.current = true;
@@ -56,6 +57,12 @@ export function usePersonalTableViewModel(
     const cargarDatos = async () => {
       try {
         const token = sesion.obtenerToken();
+        if (tokenListadoRef.current !== token) {
+          tokenListadoRef.current = token;
+          setEmpleados([]);
+          setAccionModal(null);
+          setFeedback(null);
+        }
         const payload = token ? sesion.decodificarToken(token) : null;
 
         // Comprobación de vigencia del JWT
@@ -70,14 +77,14 @@ export function usePersonalTableViewModel(
           return;
         }
 
-        // Comprobación de RBAC estricto (US-007 / US-009)
-        if (payload.idRol !== 4) {
+        // Consultar personal no concede permiso para abrir formularios de gestión.
+        if (payload.idRol !== 3 && payload.idRol !== 4) {
           setIdRolActor(payload.idRol);
-          setErrorAcceso('La gestión de personal municipal está restringida exclusivamente a la cuenta de Superadministrador (IdRol 4).');
+          setErrorAcceso('La consulta de personal está disponible para administradores de departamento y Superadmin.');
           return;
         }
 
-        setIdRolActor(4);
+        setIdRolActor(payload.idRol);
         setErrorAcceso(null);
 
         const listado = await consulta.listarEmpleados();
@@ -92,7 +99,7 @@ export function usePersonalTableViewModel(
             setErrorAcceso(
               status === 401
                 ? 'Sesión no autorizada. Vuelve a iniciar sesión.'
-                : 'El servidor no permite gestionar empleados con las credenciales actuales.'
+                : 'El servidor no permite consultar empleados con las credenciales actuales.'
             );
           }
           const mensaje = err instanceof Error ? err.message : 'Error al cargar el catálogo de empleados.';
@@ -114,6 +121,7 @@ export function usePersonalTableViewModel(
     };
   }, [sesion, consulta, version]);
 
+  const puedeConsultar = (idRolActor === 3 || idRolActor === 4) && !errorAcceso;
   const puedeGestionar = idRolActor === 4 && !errorAcceso;
 
   // 2. Filtros computados en memoria para alto rendimiento (DataGrid)
@@ -173,10 +181,10 @@ export function usePersonalTableViewModel(
   }, []);
 
   const recargar = useCallback(() => {
-    if (!puedeGestionar || accionModal) return;
+    if (!puedeConsultar || accionModal) return;
     setIsLoading(true);
     setVersion((v) => v + 1);
-  }, [puedeGestionar, accionModal]);
+  }, [puedeConsultar, accionModal]);
 
   // 5. Manejo optimista de cambios confirmados por los formularios
   const procesarCambio = useCallback((cambio: CambioPersonal) => {
@@ -218,6 +226,7 @@ export function usePersonalTableViewModel(
     // Estados de inicialización y sesión
     inicializando,
     idRolActor,
+    puedeConsultar,
     puedeGestionar,
     errorAcceso,
 

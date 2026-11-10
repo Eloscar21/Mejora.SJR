@@ -122,7 +122,7 @@ Para aceptar esta HU: comprobar precarga, cambio/cancelación sin alterar la fil
 
 ## 8. Seguridad y límites
 
-- La UI exige rol 4, pero empleadoRoutes conserva authorizeRoles(3,4). El bloqueo visual no reemplaza al middleware de US-007.
+- [US-021](README_HU_US021.md) conserva la consulta departamental para rol 3 y restringe las escrituras de empleados al rol 4 en el backend. El bloqueo visual no reemplaza esa autorización.
 - La tabla ya integra los formularios y el middleware web cubre /admin. Los pendientes iniciales de esa integración no describen el estado actual.
 - US-012 de Isaac incorporó rechazo de futuros logins de usuarios inactivos. Una baja no debe presentarse como revocación automática de todos los JWT ya emitidos.
 - La entrega original observó un fallo de build del login por useSearchParams. El login actual contiene Suspense; no se certificó nuevamente el build al separar estos documentos.

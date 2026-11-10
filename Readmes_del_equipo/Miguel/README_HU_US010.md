@@ -112,7 +112,7 @@ Miguel confirmó el funcionamiento local el 28 de octubre de 2026 tras configura
 
 ## 7. Seguridad y límites
 
-- El bloqueo visual de rol 4 no sustituye al backend: empleadoRoutes sigue configurando authorizeRoles(3,4). La autorización exclusiva de US-007 continúa siendo un punto a comprobar con el equipo.
+- [US-021](README_HU_US021.md) separa consulta de gestión: el backend admite consultas de roles 3/4 y reserva POST, PUT y PATCH al rol 4. El bloqueo visual no sustituye esa autorización.
 - Next middleware cubre /admin y la tabla ya monta los formularios. Los pendientes iniciales de integración no deben confundirse con el estado actual del código.
 - La entrega original observó un fallo de next build por useSearchParams en login. El login actual contiene Suspense; esta separación documental no vuelve a certificar el build.
 - Leer JWT/exp/rol en cliente no verifica firma. La tabla comprueba vigencia al cargar/actualizar, sin un vigilante continuo de sesión.

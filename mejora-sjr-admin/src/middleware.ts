@@ -6,11 +6,13 @@
  * "El middleware debe bloquear accesos de roles 1 y 2, permitiendo solo el acceso a IdRol=3 e IdRol=4."
  * 
  * Reglas de Seguridad (Cero Confianza / Zero Trust):
- * - Intercepta todas las peticiones a /dashboard y subrutas.
+ * - Intercepta /dashboard, /admin y sus subrutas.
  * - Extrae el JWT desde la cookie 'mejora_sjr_token'.
- * - Si no hay token o expiró -> Redirige a /login?error=session_expired.
- * - Si IdRol es 1 (Ciudadano) o 2 (Trabajador) -> Bloquea inmediatamente y redirige a /login?error=unauthorized_role.
+ * - Si no hay token, es ilegible o expiró -> Redirige a /no-autorizado.
+ * - Si IdRol es 1 (Ciudadano) o 2 (Trabajador) -> Redirige a /acceso-denegado.
  * - Solo IdRol 3 (Admin Depto) o 4 (Superadmin) pueden acceder.
+ * - US-021: /admin/personal admite rol 3 para consulta y rol 4 para gestión.
+ * - La verificación de firma JWT y los permisos de la API corresponden al backend.
  */
 
 import { NextResponse } from 'next/server';
@@ -115,11 +117,15 @@ export function middleware(request: NextRequest) {
     }
 
     // ========================================================
-    // REGLA DE GUARDIA RBAC SUPERADMIN (US-007 / US-009 / US-013 / US-015):
-    // La ruta /admin/personal es exclusiva de Superadmin (IdRol = 4).
-    // Si un Rol 3 (Admin de Depto) intenta acceder, cae en la vista corporativa 403 (#0A3D62).
+    // US-021: rol 3 puede abrir únicamente el listado /admin/personal.
+    // Las demás rutas de gestión conservan el requisito de Superadmin (rol 4).
+    // La página informativa de acceso denegado ya se resolvió arriba.
     // ========================================================
-    if (pathname.startsWith('/admin') && rol !== 4) {
+    const permiteConsultaPersonal = rol === 3 && (
+      pathname === '/admin/personal' || pathname === '/admin/personal/'
+    );
+
+    if (pathname.startsWith('/admin') && rol !== 4 && !permiteConsultaPersonal) {
       console.warn(`[Security Middleware] Acceso denegado a ruta de gestión /admin para rol ${rol} (${payload.email})`);
       const deniedUrl = new URL('/admin/acceso-denegado', request.url);
       deniedUrl.searchParams.set('motivo', 'privilegios_superadmin');

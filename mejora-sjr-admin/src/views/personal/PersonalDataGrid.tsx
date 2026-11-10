@@ -63,8 +63,8 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
     );
   }
 
-  // 2. Bloqueo RBAC si no es Superadmin (Rol 4) -> Vista Corporativa 403 (#0A3D62) (US-015)
-  if (!vm.puedeGestionar) {
+  // US-021: el ViewModel distingue consulta de gestión; la vista representa sus permisos.
+  if (!vm.puedeConsultar) {
     return <IntercepcionErrorView codigo={403} modo="embebido" />;
   }
 
@@ -75,13 +75,15 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
             <Users className="h-3.5 w-3.5" />
-            Historia de Usuario US-009 • Gestión de Personal
+            Personal Municipal
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Personal Municipal (DataGrid)
+            Personal Municipal
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Administración integral de cuentas de empleados: trabajadores operativos y directores departamentales.
+            {vm.puedeGestionar
+              ? 'Administración de cuentas de trabajadores operativos y directores departamentales.'
+              : 'Consulta y filtra los trabajadores de tu departamento.'}
           </p>
         </div>
 
@@ -97,15 +99,17 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
             <span>Actualizar</span>
           </button>
 
-          <button
-            type="button"
-            onClick={vm.abrirCrear}
-            disabled={Boolean(vm.accionModal)}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all hover:shadow-lg disabled:opacity-50"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Nuevo Empleado</span>
-          </button>
+          {vm.puedeGestionar && (
+            <button
+              type="button"
+              onClick={vm.abrirCrear}
+              disabled={Boolean(vm.accionModal)}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all hover:shadow-lg disabled:opacity-50"
+            >
+              <UserPlus className="h-4 w-4" />
+              <span>Nuevo Empleado</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -255,7 +259,7 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                 <th className="py-3.5 px-4">Rol Asignado</th>
                 <th className="py-3.5 px-4">Departamento</th>
                 <th className="py-3.5 px-4">Estado</th>
-                <th className="py-3.5 px-4 text-center w-28">Acciones</th>
+                {vm.puedeGestionar && <th className="py-3.5 px-4 text-center w-28">Acciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -276,13 +280,13 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                     <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-24" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-28" /></td>
                     <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-16" /></td>
-                    <td className="py-4 px-4"><div className="h-8 bg-slate-200 rounded w-16 mx-auto" /></td>
+                    {vm.puedeGestionar && <td className="py-4 px-4"><div className="h-8 bg-slate-200 rounded w-16 mx-auto" /></td>}
                   </tr>
                 ))
               ) : vm.empleados.length === 0 ? (
                 // Estado Vacío
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500 space-y-3">
+                  <td colSpan={vm.puedeGestionar ? 6 : 5} className="py-12 text-center text-slate-500 space-y-3">
                     <Users className="h-10 w-10 text-slate-300 mx-auto" />
                     <p className="text-sm font-medium">No se encontraron empleados con los filtros seleccionados.</p>
                     {(vm.filtroTexto || vm.filtroRol !== 'todos' || vm.filtroEstado !== 'todos') && (
@@ -373,33 +377,35 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                       </td>
 
                       {/* 6. Botones de Acción: Lápiz (Editar) y Basurero (Desactivar) */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-1.5">
-                          {/* Botón LÁPIZ para Editar */}
-                          <button
-                            type="button"
-                            onClick={() => vm.abrirEditar(empleado)}
-                            disabled={Boolean(vm.accionModal)}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all shadow-xs disabled:opacity-40"
-                            title="Editar empleado (Lápiz)"
-                            aria-label={`Editar empleado ${empleado.nombre}`}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                      {vm.puedeGestionar && (
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center space-x-1.5">
+                            {/* Botón LÁPIZ para Editar */}
+                            <button
+                              type="button"
+                              onClick={() => vm.abrirEditar(empleado)}
+                              disabled={Boolean(vm.accionModal)}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all shadow-xs disabled:opacity-40"
+                              title="Editar empleado (Lápiz)"
+                              aria-label={`Editar empleado ${empleado.nombre}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
 
-                          {/* Botón BASURERO para Desactivar */}
-                          <button
-                            type="button"
-                            onClick={() => vm.abrirDesactivar(empleado)}
-                            disabled={!empleado.activo || Boolean(vm.accionModal)}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 hover:border-red-300 transition-all shadow-xs disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 disabled:hover:border-slate-200"
-                            title={empleado.activo ? 'Desactivar empleado (Basurero)' : 'Empleado ya inactivo'}
-                            aria-label={`Desactivar empleado ${empleado.nombre}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                            {/* Botón BASURERO para Desactivar */}
+                            <button
+                              type="button"
+                              onClick={() => vm.abrirDesactivar(empleado)}
+                              disabled={!empleado.activo || Boolean(vm.accionModal)}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 hover:border-red-300 transition-all shadow-xs disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-600 disabled:hover:border-slate-200"
+                              title={empleado.activo ? 'Desactivar empleado (Basurero)' : 'Empleado ya inactivo'}
+                              aria-label={`Desactivar empleado ${empleado.nombre}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -414,19 +420,21 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
             Mostrando <strong>{vm.empleados.length}</strong> de <strong>{vm.totalOriginal}</strong> empleados registrados
           </span>
           <span className="text-[11px] text-slate-400">
-            Control de Acceso RBAC • Exclusivo Superadmin (IdRol = 4)
+            {vm.puedeGestionar ? 'Gestión de personal • Superadmin' : 'Consulta de trabajadores del departamento'}
           </span>
         </div>
       </div>
 
       {/* 7. Compositor de Modales (Crear, Editar, Desactivar) */}
-      <PersonalFormularios
-        accion={vm.accionModal}
-        idRolActor={vm.idRolActor}
-        servicios={servicios}
-        onCerrar={vm.cerrarModal}
-        onCambio={vm.procesarCambio}
-      />
+      {vm.puedeGestionar && (
+        <PersonalFormularios
+          accion={vm.accionModal}
+          idRolActor={vm.idRolActor}
+          servicios={servicios}
+          onCerrar={vm.cerrarModal}
+          onCambio={vm.procesarCambio}
+        />
+      )}
     </div>
   );
 };

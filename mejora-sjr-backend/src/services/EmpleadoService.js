@@ -14,6 +14,15 @@ class EmpleadoService {
     this.usuarioRepository = usuarioRepository;
   }
 
+  /** La gestión de cuentas está reservada al Superadmin, también fuera de HTTP. */
+  _exigirSuperadmin(usuarioAutenticado) {
+    if (!usuarioAutenticado || usuarioAutenticado.idRol !== 4) {
+      const error = new Error('Solo el Superadmin puede crear, editar o desactivar empleados.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
   /**
    * Valida la regla de departamento según rol:
    * - Rol 2 (Trabajador) y Rol 3 (Admin): OBLIGATORIO tener idDepartamento (1 o 2).
@@ -46,6 +55,8 @@ class EmpleadoService {
    * Crear nuevo empleado en la base de datos
    */
   async crearEmpleado({ nombre, email, password, idRol, idDepartamento }, usuarioAutenticado) {
+    this._exigirSuperadmin(usuarioAutenticado);
+
     if (!nombre || !email || !password || idRol === undefined) {
       const error = new Error('Los campos nombre, email, password e idRol son requeridos.');
       error.statusCode = 400;
@@ -53,17 +64,7 @@ class EmpleadoService {
     }
 
     const rolNum = Number(idRol);
-    let deptoNum = idDepartamento !== null && idDepartamento !== undefined ? Number(idDepartamento) : null;
-
-    // Regla RBAC: Admin Depto (Rol 3) solo puede crear empleados para su propio departamento
-    if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
-      if (rolNum !== 2) {
-        const error = new Error('Los Administradores departamentales solo pueden registrar Trabajadores de Campo (Rol 2).');
-        error.statusCode = 403;
-        throw error;
-      }
-      deptoNum = usuarioAutenticado.idDepartamento;
-    }
+    const deptoNum = idDepartamento !== null && idDepartamento !== undefined ? Number(idDepartamento) : null;
 
     // Validar concordancia de departamento
     this._validarDeptoPorRol(rolNum, deptoNum);
@@ -97,10 +98,23 @@ class EmpleadoService {
    * Listar empleados activos respetando el scope de departamento (RBAC)
    */
   async listarEmpleados(usuarioAutenticado) {
+    if (!usuarioAutenticado || ![3, 4].includes(usuarioAutenticado.idRol)) {
+      const error = new Error('No tienes permisos para consultar empleados.');
+      error.statusCode = 403;
+      throw error;
+    }
+
     const filtros = { roles: [2, 3] };
 
-    // Si es Admin de Departamento (Rol 3), filtra forzosamente por su propio departamento
-    if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
+    // US-021: el administrador solo consulta trabajadores de su propio departamento.
+    if (usuarioAutenticado.idRol === 3) {
+      if (!Number.isInteger(usuarioAutenticado.idDepartamento) || usuarioAutenticado.idDepartamento <= 0) {
+        const error = new Error('Tu sesión no tiene un departamento válido para consultar trabajadores.');
+        error.statusCode = 403;
+        throw error;
+      }
+
+      filtros.roles = [2];
       filtros.idDepartamento = usuarioAutenticado.idDepartamento;
     }
 
@@ -111,6 +125,8 @@ class EmpleadoService {
    * Actualizar nombre, rol o departamento de un empleado
    */
   async actualizarEmpleado(idUsuario, { nombre, idRol, idDepartamento }, usuarioAutenticado) {
+    this._exigirSuperadmin(usuarioAutenticado);
+
     const idNum = Number(idUsuario);
     if (!idNum || isNaN(idNum)) {
       const error = new Error('ID de usuario inválido.');
@@ -132,22 +148,7 @@ class EmpleadoService {
     }
 
     const rolNum = Number(idRol);
-    let deptoNum = idDepartamento !== null && idDepartamento !== undefined ? Number(idDepartamento) : null;
-
-    // Control RBAC: Si es Admin Depto (Rol 3)
-    if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
-      if (empleadoExistente.idDepartamento !== usuarioAutenticado.idDepartamento) {
-        const error = new Error('No tienes permisos para modificar empleados de otro departamento.');
-        error.statusCode = 403;
-        throw error;
-      }
-      if (rolNum !== 2) {
-        const error = new Error('Los Administradores departamentales solo pueden mantener el rol de Trabajador (Rol 2).');
-        error.statusCode = 403;
-        throw error;
-      }
-      deptoNum = usuarioAutenticado.idDepartamento;
-    }
+    const deptoNum = idDepartamento !== null && idDepartamento !== undefined ? Number(idDepartamento) : null;
 
     this._validarDeptoPorRol(rolNum, deptoNum);
 
@@ -170,6 +171,8 @@ class EmpleadoService {
    * Soft Delete: Desactivar empleado cambiando Activo = 0
    */
   async desactivarEmpleado(idUsuario, usuarioAutenticado) {
+    this._exigirSuperadmin(usuarioAutenticado);
+
     const idNum = Number(idUsuario);
     if (!idNum || isNaN(idNum)) {
       const error = new Error('ID de usuario inválido.');
@@ -189,15 +192,6 @@ class EmpleadoService {
       const error = new Error('No puedes desactivar tu propia cuenta de usuario.');
       error.statusCode = 400;
       throw error;
-    }
-
-    // Control RBAC
-    if (usuarioAutenticado && usuarioAutenticado.idRol === 3) {
-      if (empleadoExistente.idDepartamento !== usuarioAutenticado.idDepartamento) {
-        const error = new Error('No tienes permisos para desactivar empleados de otro departamento.');
-        error.statusCode = 403;
-        throw error;
-      }
     }
 
     const exito = await this.usuarioRepository.desactivarEmpleado(idNum);
