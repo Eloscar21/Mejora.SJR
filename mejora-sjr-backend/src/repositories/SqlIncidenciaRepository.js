@@ -135,6 +135,140 @@ class SqlIncidenciaRepository extends IIncidenciaRepository {
       longitud: Number(row.longitud)
     };
   }
+
+  /**
+   * Listar incidencias con soporte para RBAC departamental y filtros opcionales (US-025)
+   */
+  async listarIncidencias({ idDepartamento, idEstado, idTrabajadorAsignado } = {}) {
+    const request = this.pool.request();
+    let query = `
+      SELECT 
+        IdIncidencia AS idIncidencia,
+        Descripcion AS descripcion,
+        Latitud AS latitud,
+        Longitud AS longitud,
+        FechaCreacion AS fechaCreacion,
+        FechaActualizacion AS fechaActualizacion,
+        IdEstado AS idEstado,
+        Estado AS estadoNombre,
+        IdCategoria AS idCategoria,
+        Categoria AS categoriaNombre,
+        IdDepartamento AS idDepartamento,
+        Departamento AS departamentoNombre,
+        IdCiudadano AS idCiudadano,
+        CiudadanoNombre AS ciudadanoNombre,
+        IdTrabajadorAsignado AS idTrabajadorAsignado,
+        TrabajadorNombre AS trabajadorNombre,
+        FotoInicialUrl AS fotoInicialUrl,
+        FotoResolucionUrl AS fotoResolucionUrl
+      FROM vw_IncidenciasDetalle
+      WHERE 1 = 1
+    `;
+
+    if (idDepartamento !== undefined && idDepartamento !== null) {
+      request.input('IdDepartamento', sql.Int, Number(idDepartamento));
+      query += ` AND IdDepartamento = @IdDepartamento`;
+    }
+
+    if (idEstado !== undefined && idEstado !== null) {
+      request.input('IdEstado', sql.Int, Number(idEstado));
+      query += ` AND IdEstado = @IdEstado`;
+    }
+
+    if (idTrabajadorAsignado !== undefined && idTrabajadorAsignado !== null) {
+      request.input('IdTrabajadorAsignado', sql.Int, Number(idTrabajadorAsignado));
+      query += ` AND IdTrabajadorAsignado = @IdTrabajadorAsignado`;
+    }
+
+    query += ` ORDER BY FechaCreacion DESC;`;
+
+    const result = await request.query(query);
+    return result.recordset.map(r => ({
+      ...r,
+      latitud: Number(r.latitud),
+      longitud: Number(r.longitud)
+    }));
+  }
+
+  /**
+   * Asignar un trabajador a la incidencia (US-025)
+   */
+  async asignarTrabajador(idIncidencia, idTrabajador, nuevoEstado = 2) {
+    const request = this.pool.request();
+    request.input('IdIncidencia', sql.Int, Number(idIncidencia));
+    request.input('IdTrabajador', sql.Int, Number(idTrabajador));
+    request.input('NuevoEstado', sql.Int, Number(nuevoEstado));
+
+    const query = `
+      UPDATE Incidencias
+      SET 
+        IdTrabajadorAsignado = @IdTrabajador,
+        IdEstado = @NuevoEstado,
+        FechaActualizacion = GETDATE()
+      OUTPUT 
+        INSERTED.IdIncidencia AS idIncidencia,
+        INSERTED.Descripcion AS descripcion,
+        INSERTED.Latitud AS latitud,
+        INSERTED.Longitud AS longitud,
+        INSERTED.IdUsuario AS idUsuario,
+        INSERTED.IdCategoria AS idCategoria,
+        INSERTED.IdEstado AS idEstado,
+        INSERTED.IdTrabajadorAsignado AS idTrabajadorAsignado,
+        INSERTED.FechaCreacion AS fechaCreacion,
+        INSERTED.FechaActualizacion AS fechaActualizacion
+      WHERE IdIncidencia = @IdIncidencia;
+    `;
+
+    const result = await request.query(query);
+    if (!result.recordset[0]) return null;
+    const row = result.recordset[0];
+    return {
+      ...row,
+      latitud: Number(row.latitud),
+      longitud: Number(row.longitud)
+    };
+  }
+
+  /**
+   * Descartar incidencia como ficticia / rechazada (Estado 5) (US-025)
+   */
+  async descartarIncidencia(idIncidencia, motivoRechazo) {
+    const request = this.pool.request();
+    request.input('IdIncidencia', sql.Int, Number(idIncidencia));
+    request.input('MotivoRechazo', sql.NVarChar(sql.MAX), motivoRechazo.trim());
+
+    // Se actualiza el estado a 5 (Rechazado) y se anexa el motivo a la descripción o bitácora
+    const query = `
+      UPDATE Incidencias
+      SET 
+        IdEstado = 5,
+        FechaActualizacion = GETDATE(),
+        Descripcion = CONCAT(Descripcion, ' [RECHAZADO: ', @MotivoRechazo, ']')
+      OUTPUT 
+        INSERTED.IdIncidencia AS idIncidencia,
+        INSERTED.Descripcion AS descripcion,
+        INSERTED.Latitud AS latitud,
+        INSERTED.Longitud AS longitud,
+        INSERTED.IdUsuario AS idUsuario,
+        INSERTED.IdCategoria AS idCategoria,
+        INSERTED.IdEstado AS idEstado,
+        INSERTED.IdTrabajadorAsignado AS idTrabajadorAsignado,
+        INSERTED.FechaCreacion AS fechaCreacion,
+        INSERTED.FechaActualizacion AS fechaActualizacion
+      WHERE IdIncidencia = @IdIncidencia;
+    `;
+
+    const result = await request.query(query);
+    if (!result.recordset[0]) return null;
+    const row = result.recordset[0];
+    return {
+      ...row,
+      latitud: Number(row.latitud),
+      longitud: Number(row.longitud),
+      motivoRechazo: motivoRechazo.trim()
+    };
+  }
 }
 
 module.exports = SqlIncidenciaRepository;
+

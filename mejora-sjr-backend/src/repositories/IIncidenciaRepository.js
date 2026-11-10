@@ -29,6 +29,40 @@ class IIncidenciaRepository {
   async buscarPorId(idIncidencia) {
     throw new Error('Método no implementado');
   }
+
+  /**
+   * Lista incidencias aplicando filtros opcionales de departamento, estado o trabajador (US-025)
+   * @param {Object} [filtros]
+   * @param {number} [filtros.idDepartamento]
+   * @param {number} [filtros.idEstado]
+   * @param {number} [filtros.idTrabajadorAsignado]
+   * @returns {Promise<Array<Object>>}
+   */
+  async listarIncidencias(filtros) {
+    throw new Error('Método no implementado');
+  }
+
+  /**
+   * Asigna una incidencia a un trabajador y actualiza su estado (US-025)
+   * @param {number} idIncidencia
+   * @param {number} idTrabajador
+   * @param {number} nuevoEstado
+   * @returns {Promise<Object|null>}
+   */
+  async asignarTrabajador(idIncidencia, idTrabajador, nuevoEstado = 2) {
+    throw new Error('Método no implementado');
+  }
+
+  /**
+   * Descarta una incidencia marcándola con IdEstado = 5 (Rechazado) y guardando motivo (US-025)
+   * @param {number} idIncidencia
+   * @param {string} motivoRechazo
+   * @returns {Promise<Object|null>}
+   */
+  async descartarIncidencia(idIncidencia, motivoRechazo) {
+    throw new Error('Método no implementado');
+  }
 }
 
 module.exports = IIncidenciaRepository;
+

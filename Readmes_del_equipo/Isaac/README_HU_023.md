@@ -54,3 +54,4 @@ PASS tests/errorHandler.test.js
 Test Suites: 8 passed, 8 total
 Tests:       88 passed, 88 total
 ```
+

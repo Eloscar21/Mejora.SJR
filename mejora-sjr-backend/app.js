@@ -51,7 +51,7 @@ const createApp = ({ usuarioRepository, catalogoRepository, incidenciaRepository
   app.use('/api/usuarios/empleados', empleadoRouter); // Alias US-020
 
   const resolvedIncidenciaRepo = incidenciaRepository || new MockIncidenciaRepository();
-  app.use('/api/incidencias', createIncidenciaRouter(resolvedIncidenciaRepo, catalogoRepository, jwtSecret));
+  app.use('/api/incidencias', createIncidenciaRouter(resolvedIncidenciaRepo, catalogoRepository, usuarioRepository, jwtSecret));
 
   // Health check
   app.get('/health', (req, res) => {

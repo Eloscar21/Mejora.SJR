@@ -17,13 +17,15 @@ class IncidenciaService {
   /**
    * @param {import('../repositories/IIncidenciaRepository')} incidenciaRepository
    * @param {import('../repositories/ICatalogoRepository')} catalogoRepository
+   * @param {import('../repositories/IUsuarioRepository')} [usuarioRepository]
    */
-  constructor(incidenciaRepository, catalogoRepository) {
+  constructor(incidenciaRepository, catalogoRepository, usuarioRepository) {
     if (!incidenciaRepository) {
       throw new Error('incidenciaRepository es requerido en IncidenciaService.');
     }
     this.incidenciaRepository = incidenciaRepository;
     this.catalogoRepository = catalogoRepository;
+    this.usuarioRepository = usuarioRepository;
   }
 
   /**
@@ -116,6 +118,145 @@ class IncidenciaService {
 
     return nuevaIncidencia;
   }
+
+  /**
+   * Listar incidencias con RBAC dinámico (US-025)
+   * - Superadmin (Rol 4): lista todas las incidencias de todos los departamentos.
+   * - Admin de Depto (Rol 3): filtra estrictamente por su propio departamento.
+   * - Trabajador (Rol 2): filtra incidencias asignadas a él o de su depto.
+   */
+  async listarIncidencias(usuarioAutenticado, filtros = {}) {
+    if (!usuarioAutenticado) {
+      const error = new Error('No se pudo identificar al usuario autenticado.');
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const rol = usuarioAutenticado.idRol || usuarioAutenticado.IdRol;
+    const deptoToken = usuarioAutenticado.idDepartamento !== undefined 
+      ? usuarioAutenticado.idDepartamento 
+      : usuarioAutenticado.IdDepartamento;
+
+    const queryFiltros = { ...filtros };
+
+    if (rol === 3) {
+      // Inyección estricta de aislamiento RBAC para Admin de Departamento
+      queryFiltros.idDepartamento = deptoToken;
+    } else if (rol === 2) {
+      // Trabajador operativo: ve las asignadas a él o de su departamento
+      queryFiltros.idDepartamento = deptoToken;
+      if (filtros.soloAsignadasAMi) {
+        queryFiltros.idTrabajadorAsignado = usuarioAutenticado.idUsuario;
+      }
+    } else if (rol !== 4) {
+      const error = new Error('Acceso denegado: Rol no autorizado para consultar incidencias.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return await this.incidenciaRepository.listarIncidencias(queryFiltros);
+  }
+
+  /**
+   * Asignar trabajador de campo a una incidencia (US-025)
+   * Valida que el trabajador pertenezca al mismo departamento de la incidencia
+   */
+  async asignarTrabajador(idIncidencia, idTrabajador, usuarioAutenticado) {
+    const idIncNum = Number(idIncidencia);
+    const idTrabNum = Number(idTrabajador);
+
+    if (!idIncNum || isNaN(idIncNum)) {
+      const error = new Error('ID de incidencia inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!idTrabNum || isNaN(idTrabNum)) {
+      const error = new Error('ID de trabajador inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const incidencia = await this.incidenciaRepository.buscarPorId(idIncNum);
+    if (!incidencia) {
+      const error = new Error('La incidencia indicada no existe.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const rol = usuarioAutenticado.idRol || usuarioAutenticado.IdRol;
+    const deptoUsuario = usuarioAutenticado.idDepartamento !== undefined 
+      ? usuarioAutenticado.idDepartamento 
+      : usuarioAutenticado.IdDepartamento;
+
+    // RBAC: Si es Admin (Rol 3), debe ser de su propio departamento
+    if (rol === 3 && incidencia.idDepartamento !== deptoUsuario) {
+      const error = new Error('No tienes permisos para asignar incidencias de otro departamento.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Validar si el trabajador existe y es Rol 2
+    if (this.usuarioRepository && typeof this.usuarioRepository.buscarPorId === 'function') {
+      const trabajador = await this.usuarioRepository.buscarPorId(idTrabNum);
+      if (!trabajador || trabajador.idRol !== 2) {
+        const error = new Error('El usuario asignado debe ser un trabajador operativo activo (Rol 2).');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (trabajador.idDepartamento !== incidencia.idDepartamento) {
+        const error = new Error('El trabajador asignado debe pertenecer al mismo departamento de la incidencia.');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // Asignar y actualizar a Estado 2 (En Revisión) o 3 (En Progreso)
+    const incidenciaActualizada = await this.incidenciaRepository.asignarTrabajador(idIncNum, idTrabNum, 2);
+    return incidenciaActualizada;
+  }
+
+  /**
+   * Descartar incidencia como ficticia / falsa (Estado 5) (US-025)
+   */
+  async descartarIncidencia(idIncidencia, { motivoRechazo }, usuarioAutenticado) {
+    const idIncNum = Number(idIncidencia);
+
+    if (!idIncNum || isNaN(idIncNum)) {
+      const error = new Error('ID de incidencia inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!motivoRechazo || typeof motivoRechazo !== 'string' || motivoRechazo.trim().length < 5) {
+      const error = new Error('Debe proporcionar un motivo de descarte válido de al menos 5 caracteres.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const incidencia = await this.incidenciaRepository.buscarPorId(idIncNum);
+    if (!incidencia) {
+      const error = new Error('La incidencia indicada no existe.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const rol = usuarioAutenticado.idRol || usuarioAutenticado.IdRol;
+    const deptoUsuario = usuarioAutenticado.idDepartamento !== undefined 
+      ? usuarioAutenticado.idDepartamento 
+      : usuarioAutenticado.IdDepartamento;
+
+    // RBAC: Si es Admin (Rol 3), debe ser de su propio departamento
+    if (rol === 3 && incidencia.idDepartamento !== deptoUsuario) {
+      const error = new Error('No tienes permisos para descartar incidencias de otro departamento.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const resultado = await this.incidenciaRepository.descartarIncidencia(idIncNum, motivoRechazo.trim());
+    return resultado;
+  }
 }
 
 module.exports = IncidenciaService;
+
