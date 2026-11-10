@@ -7,7 +7,9 @@ const { getPool } = require('./src/config/dbPool');
 const { createApp } = require('./app');
 const MockUsuarioRepository = require('./src/repositories/MockUsuarioRepository');
 const MockCatalogoRepository = require('./src/repositories/MockCatalogoRepository');
+const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
 const SqlUsuarioRepository = require('./src/repositories/SqlUsuarioRepository');
+const SqlIncidenciaRepository = require('./src/repositories/SqlIncidenciaRepository');
 
 const bootstrap = async () => {
   let config;
@@ -21,6 +23,7 @@ const bootstrap = async () => {
 
   let usuarioRepository;
   let catalogoRepository;
+  let incidenciaRepository;
 
   // 2. Selección explícita de fuente de datos (Sin fallbacks silenciosos)
   if (config.dataSource === 'azure_sql') {
@@ -28,9 +31,9 @@ const bootstrap = async () => {
       console.log('[Bootstrapper] Conectando a Azure SQL...');
       const pool = await getPool();
       usuarioRepository = new SqlUsuarioRepository(pool);
-      // Para catálogos, utilizamos MockCatalogoRepository hasta implementar SqlCatalogoRepository
       catalogoRepository = new MockCatalogoRepository();
-      console.log('[Bootstrapper] Repositorio SqlUsuarioRepository conectado exitosamente a Azure SQL.');
+      incidenciaRepository = new SqlIncidenciaRepository(pool);
+      console.log('[Bootstrapper] Repositorios SQL conectados exitosamente a Azure SQL.');
     } catch (dbError) {
       console.error('[Bootstrapper] Fallo crítico al conectar a Azure SQL:', dbError.message);
       process.exit(1);
@@ -40,12 +43,14 @@ const bootstrap = async () => {
     console.log('[Bootstrapper] Inicializando servidor con repositorios MOCK (Modo desarrollo).');
     usuarioRepository = new MockUsuarioRepository();
     catalogoRepository = new MockCatalogoRepository();
+    incidenciaRepository = new MockIncidenciaRepository();
   }
 
   // 3. Ensamblado de la aplicación Express
   const app = createApp({
     usuarioRepository,
     catalogoRepository,
+    incidenciaRepository,
     jwtSecret: config.jwtSecret
   });
 

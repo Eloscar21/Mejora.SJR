@@ -5,6 +5,8 @@ const express = require('express');
 const createAuthRouter = require('./src/routes/authRoutes');
 const createCatalogoRouter = require('./src/routes/catalogoRoutes');
 const createEmpleadoRouter = require('./src/routes/empleadoRoutes');
+const createIncidenciaRouter = require('./src/routes/incidenciaRoutes');
+const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
 const errorHandler = require('./src/middlewares/errorHandler');
 
 /**
@@ -15,10 +17,11 @@ const errorHandler = require('./src/middlewares/errorHandler');
  * @param {Object} dependencies
  * @param {import('./src/repositories/IUsuarioRepository')} dependencies.usuarioRepository
  * @param {import('./src/repositories/ICatalogoRepository')} dependencies.catalogoRepository
+ * @param {import('./src/repositories/IIncidenciaRepository')} [dependencies.incidenciaRepository]
  * @param {string} [dependencies.jwtSecret]
  * @returns {express.Application}
  */
-const createApp = ({ usuarioRepository, catalogoRepository, jwtSecret } = {}) => {
+const createApp = ({ usuarioRepository, catalogoRepository, incidenciaRepository, jwtSecret } = {}) => {
   // Exigencia estricta de dependencias: Prohibido usar mocks como fallback silencioso
   if (!usuarioRepository || !catalogoRepository) {
     throw new Error('usuarioRepository y catalogoRepository son obligatorios para construir la aplicación.');
@@ -46,6 +49,9 @@ const createApp = ({ usuarioRepository, catalogoRepository, jwtSecret } = {}) =>
   const empleadoRouter = createEmpleadoRouter(usuarioRepository, jwtSecret);
   app.use('/api/empleados', empleadoRouter);
   app.use('/api/usuarios/empleados', empleadoRouter); // Alias US-020
+
+  const resolvedIncidenciaRepo = incidenciaRepository || new MockIncidenciaRepository();
+  app.use('/api/incidencias', createIncidenciaRouter(resolvedIncidenciaRepo, catalogoRepository, jwtSecret));
 
   // Health check
   app.get('/health', (req, res) => {
