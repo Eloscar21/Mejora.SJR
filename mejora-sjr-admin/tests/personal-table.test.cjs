@@ -97,6 +97,7 @@ function deferred() {
 const worker = { idUsuario: 2, nombre: 'Pedro', email: 'pedro@test.com', idRol: 2, idDepartamento: 1, activo: true };
 const otherWorker = { ...worker, idUsuario: 5, nombre: 'Ana', email: 'ana@test.com' };
 const admin = { ...worker, idUsuario: 3, nombre: 'Maria', idRol: 3, idDepartamento: 2 };
+const inactiveWorker = { ...worker, idUsuario: 7, nombre: 'Luis Inactivo', email: 'luis@test.com', activo: false };
 
 test('rol 3 consulta, filtra y recarga sin adquirir permiso de gestión', async () => {
   let calls = 0;
@@ -250,6 +251,58 @@ test('una respuesta anterior no reemplaza el listado de una sesión nueva', asyn
   const vm = await harness.settle();
   assert.deepEqual(vm.empleados, [worker]);
   assert.equal(vm.puedeGestionar, false);
+});
+
+test('US-022: filtra correctamente por rol y estado booleano activo actualizando las tarjetas KPI superiores', async () => {
+  const harness = createHarness(sessionFor(4), {
+    async listarEmpleados() {
+      return [worker, otherWorker, admin, inactiveWorker];
+    }
+  });
+  harness.commit();
+  let vm = await harness.settle();
+
+  // Estado inicial (Todos los roles, Todos los estados)
+  assert.deepEqual(vm.metricas, {
+    total: 4,
+    activos: 3,
+    inactivos: 1,
+    trabajadores: 3,
+    administradores: 1
+  });
+
+  // Filtrar Solo Inactivos (activo === false)
+  vm.setFiltroEstado('inactivos');
+  vm = harness.commit();
+  assert.deepEqual(vm.empleados, [inactiveWorker]);
+  assert.deepEqual(vm.metricas, {
+    total: 1,
+    activos: 0,
+    inactivos: 1,
+    trabajadores: 1,
+    administradores: 0
+  });
+
+  // Filtrar Solo Activos (activo === true) + Rol 3 (Admin Departamental)
+  vm.setFiltroEstado('activos');
+  vm.setFiltroRol(3);
+  vm = harness.commit();
+  assert.deepEqual(vm.empleados, [admin]);
+  assert.deepEqual(vm.metricas, {
+    total: 1,
+    activos: 1,
+    inactivos: 0,
+    trabajadores: 0,
+    administradores: 1
+  });
+
+  // Limpiar filtros restablece listado y contadores
+  vm.limpiarFiltros();
+  vm = harness.commit();
+  assert.equal(vm.filtroRol, 'todos');
+  assert.equal(vm.filtroEstado, 'todos');
+  assert.equal(vm.empleados.length, 4);
+  assert.equal(vm.metricas.total, 4);
 });
 
 // SSR usa React y la vista reales; solo se aíslan el compositor de formularios y la vista de error ajenos a esta HU.

@@ -13,12 +13,13 @@ export interface PersonalTableFeedback {
 
 /**
  * usePersonalTableViewModel
- * ViewModel para la UI de Gestión de Personal (DataGrid - US-009).
- * 
+ * ViewModel para la UI de Gestión de Personal (DataGrid - US-009 / US-021 / US-022).
+ *
  * Implementa el patrón MVVM:
  * - Aísla la lógica de negocio y presentación del DataGrid de empleados.
  * - Consume IEmpleadoConsultaService (DIP) y IAuthService para control de sesión Zero-Trust.
- * - Gestiona el filtrado reactivo por búsqueda de texto (nombre/email), rol y estado.
+ * - Gestiona el filtrado reactivo por búsqueda de texto (nombre/email), rol y estado booleano `activo`.
+ * - Actualiza dinámicamente los contadores de las tarjetas superiores según los filtros aplicados (US-022).
  * - Orquesta las acciones de edición (lápiz) y desactivación (basurero).
  */
 export function usePersonalTableViewModel(
@@ -124,7 +125,7 @@ export function usePersonalTableViewModel(
   const puedeConsultar = (idRolActor === 3 || idRolActor === 4) && !errorAcceso;
   const puedeGestionar = idRolActor === 4 && !errorAcceso;
 
-  // 2. Filtros computados en memoria para alto rendimiento (DataGrid)
+  // 2. Filtros computados en memoria para alto rendimiento (DataGrid - US-022)
   const empleadosFiltrados = useMemo(() => {
     return empleados.filter((emp) => {
       // Filtro por texto (Nombre o Email)
@@ -135,27 +136,29 @@ export function usePersonalTableViewModel(
         if (!coincideNombre && !coincideEmail) return false;
       }
 
-      // Filtro por Rol
-      if (filtroRol !== 'todos' && emp.idRol !== filtroRol) {
+      // Filtro por Rol ("Todos los roles" | Rol 2 | Rol 3)
+      if (filtroRol !== 'todos' && Number(emp.idRol) !== Number(filtroRol)) {
         return false;
       }
 
-      // Filtro por Estado
-      if (filtroEstado === 'activos' && !emp.activo) return false;
-      if (filtroEstado === 'inactivos' && emp.activo) return false;
+      // Filtro por Estado basado estrictamente en la propiedad booleana `activo`
+      const estaActivo = Boolean(emp.activo);
+      if (filtroEstado === 'activos' && estaActivo !== true) return false;
+      if (filtroEstado === 'inactivos' && estaActivo !== false) return false;
 
       return true;
     });
   }, [empleados, filtroTexto, filtroRol, filtroEstado]);
 
-  // 3. Métricas rápidas para las tarjetas KPI de cabecera
+  // 3. Métricas reactivas para las tarjetas KPI superiores (US-022: se actualizan con los filtros)
   const metricas = useMemo(() => {
-    const total = empleados.length;
-    const activos = empleados.filter((e) => e.activo).length;
-    const trabajadores = empleados.filter((e) => e.idRol === 2).length;
-    const administradores = empleados.filter((e) => e.idRol === 3).length;
-    return { total, activos, trabajadores, administradores };
-  }, [empleados]);
+    const total = empleadosFiltrados.length;
+    const activos = empleadosFiltrados.filter((e) => Boolean(e.activo) === true).length;
+    const inactivos = empleadosFiltrados.filter((e) => Boolean(e.activo) === false).length;
+    const trabajadores = empleadosFiltrados.filter((e) => Number(e.idRol) === 2).length;
+    const administradores = empleadosFiltrados.filter((e) => Number(e.idRol) === 3).length;
+    return { total, activos, inactivos, trabajadores, administradores };
+  }, [empleadosFiltrados]);
 
   // 4. Acciones del DataGrid
   const abrirCrear = useCallback(() => {
@@ -185,6 +188,12 @@ export function usePersonalTableViewModel(
     setIsLoading(true);
     setVersion((v) => v + 1);
   }, [puedeConsultar, accionModal]);
+
+  const limpiarFiltros = useCallback(() => {
+    setFiltroTexto('');
+    setFiltroRol('todos');
+    setFiltroEstado('todos');
+  }, []);
 
   // 5. Manejo optimista de cambios confirmados por los formularios
   const procesarCambio = useCallback((cambio: CambioPersonal) => {
@@ -244,6 +253,7 @@ export function usePersonalTableViewModel(
     setFiltroRol,
     filtroEstado,
     setFiltroEstado,
+    limpiarFiltros,
 
     // Acciones de la tabla (Botón Crear, Lápiz, Basurero)
     abrirCrear,

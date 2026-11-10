@@ -1,19 +1,18 @@
 'use client';
 
-import React, { useId, useMemo } from 'react';
-import { 
-  Users, 
-  UserPlus, 
-  Pencil, 
-  Trash2, 
-  Search, 
-  Filter, 
-  RefreshCw, 
-  ShieldAlert, 
-  CheckCircle2, 
-  XCircle, 
-  Building2, 
-  ShieldCheck, 
+import React, { useId } from 'react';
+import {
+  Users,
+  UserPlus,
+  Pencil,
+  Trash2,
+  Search,
+  Filter,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  ShieldCheck,
   AlertCircle,
   Briefcase,
   X
@@ -31,12 +30,12 @@ interface PersonalDataGridProps {
 
 /**
  * PersonalDataGrid
- * Vista de tabla interactiva (DataGrid) para la gestión del personal municipal (US-009).
- * 
+ * Vista de tabla interactiva (DataGrid) para la gestión del personal municipal (US-009 / US-021 / US-022).
+ *
  * Requerimientos:
- * - Listado de empleados con filtros reactivos.
- * - Botones de acción: Lápiz (Editar) y Basurero (Desactivar).
- * - Integración con formularios modales y RBAC estricto.
+ * - Listado de empleados con filtros reactivos por texto, rol y estado booleano `activo` (US-022).
+ * - Actualización en tiempo real de las tarjetas KPI superiores según los filtros activos (US-022).
+ * - Botones de acción: Lápiz (Editar) y Basurero (Desactivar) con distinción de consulta vs gestión (US-021).
  */
 export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: vm, servicios }) => {
   const searchInputId = useId();
@@ -67,6 +66,9 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
   if (!vm.puedeConsultar) {
     return <IntercepcionErrorView codigo={403} modo="embebido" />;
   }
+
+  const hayFiltrosActivos =
+    Boolean(vm.filtroTexto.trim()) || vm.filtroRol !== 'todos' || vm.filtroEstado !== 'todos';
 
   return (
     <div className="space-y-6">
@@ -158,39 +160,102 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
         </div>
       )}
 
-      {/* 4. Tarjetas KPI Métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Registrados</span>
+      {/* 4. Tarjetas KPI Métricas Superiores (US-022: contadores actualizados reactivamente con los filtros) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            vm.setFiltroRol('todos');
+            vm.setFiltroEstado('todos');
+          }}
+          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-blue-300 ${
+            vm.filtroRol === 'todos' && vm.filtroEstado === 'todos'
+              ? 'border-blue-400 ring-1 ring-blue-400/30'
+              : 'border-slate-200'
+          }`}
+          title="Mostrar todos los registros"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {hayFiltrosActivos ? 'Total Filtrados' : 'Total Registrados'}
+          </span>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold text-slate-900">{vm.metricas.total}</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-extrabold text-slate-900">{vm.metricas.total}</span>
+              {hayFiltrosActivos && (
+                <span className="text-[11px] font-medium text-slate-400">/ {vm.totalOriginal}</span>
+              )}
+            </div>
             <Users className="h-4 w-4 text-blue-500" />
           </div>
-        </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+        <button
+          type="button"
+          onClick={() => vm.setFiltroEstado(vm.filtroEstado === 'activos' ? 'todos' : 'activos')}
+          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-emerald-300 ${
+            vm.filtroEstado === 'activos'
+              ? 'border-emerald-500 ring-1 ring-emerald-500/30 bg-emerald-50/20'
+              : 'border-slate-200'
+          }`}
+          title="Filtrar solo personal activo"
+        >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Personal Activo</span>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-emerald-700">{vm.metricas.activos}</span>
             <ShieldCheck className="h-4 w-4 text-emerald-500" />
           </div>
-        </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+        <button
+          type="button"
+          onClick={() => vm.setFiltroEstado(vm.filtroEstado === 'inactivos' ? 'todos' : 'inactivos')}
+          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-slate-400 ${
+            vm.filtroEstado === 'inactivos'
+              ? 'border-slate-500 ring-1 ring-slate-500/30 bg-slate-50'
+              : 'border-slate-200'
+          }`}
+          title="Filtrar solo personal inactivo"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Solo Inactivos</span>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-slate-600">{vm.metricas.inactivos}</span>
+            <XCircle className="h-4 w-4 text-slate-400" />
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => vm.setFiltroRol(vm.filtroRol === 3 ? 'todos' : 3)}
+          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-purple-300 ${
+            vm.filtroRol === 3
+              ? 'border-purple-500 ring-1 ring-purple-500/30 bg-purple-50/20'
+              : 'border-slate-200'
+          }`}
+          title="Filtrar Administradores Departamentales (Rol 3)"
+        >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Admins Depto (Rol 3)</span>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-purple-700">{vm.metricas.administradores}</span>
             <Building2 className="h-4 w-4 text-purple-500" />
           </div>
-        </div>
+        </button>
 
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+        <button
+          type="button"
+          onClick={() => vm.setFiltroRol(vm.filtroRol === 2 ? 'todos' : 2)}
+          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-indigo-300 ${
+            vm.filtroRol === 2
+              ? 'border-indigo-500 ring-1 ring-indigo-500/30 bg-indigo-50/20'
+              : 'border-slate-200'
+          }`}
+          title="Filtrar Trabajadores Operativos (Rol 2)"
+        >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Operativos (Rol 2)</span>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-indigo-700">{vm.metricas.trabajadores}</span>
             <Briefcase className="h-4 w-4 text-indigo-500" />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* 5. Barra de Búsqueda y Filtros */}
@@ -217,15 +282,19 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
           )}
         </div>
 
-        {/* Filtros Dropdown */}
+        {/* Filtros Dropdown (US-022: Selector de Roles y Estado booleano activo) */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Filtro Rol */}
           <div className="flex items-center space-x-1.5">
             <Filter className="h-3.5 w-3.5 text-slate-400" />
             <select
               id={rolSelectId}
-              value={vm.filtroRol}
-              onChange={(e) => vm.setFiltroRol(e.target.value === 'todos' ? 'todos' : Number(e.target.value))}
+              aria-label="Filtrar por rol"
+              value={String(vm.filtroRol)}
+              onChange={(e) => {
+                const val = e.target.value;
+                vm.setFiltroRol(val === 'todos' ? 'todos' : Number(val));
+              }}
               className="text-xs rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="todos">Todos los roles</option>
@@ -237,6 +306,7 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
           {/* Filtro Estado */}
           <select
             id={estadoSelectId}
+            aria-label="Filtrar por estado"
             value={vm.filtroEstado}
             onChange={(e) => vm.setFiltroEstado(e.target.value as 'todos' | 'activos' | 'inactivos')}
             className="text-xs rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -245,6 +315,18 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
             <option value="activos">Solo Activos</option>
             <option value="inactivos">Solo Inactivos</option>
           </select>
+
+          {hayFiltrosActivos && (
+            <button
+              type="button"
+              onClick={vm.limpiarFiltros}
+              className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+              title="Restablecer todos los filtros"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Limpiar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -289,14 +371,10 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                   <td colSpan={vm.puedeGestionar ? 6 : 5} className="py-12 text-center text-slate-500 space-y-3">
                     <Users className="h-10 w-10 text-slate-300 mx-auto" />
                     <p className="text-sm font-medium">No se encontraron empleados con los filtros seleccionados.</p>
-                    {(vm.filtroTexto || vm.filtroRol !== 'todos' || vm.filtroEstado !== 'todos') && (
+                    {hayFiltrosActivos && (
                       <button
                         type="button"
-                        onClick={() => {
-                          vm.setFiltroTexto('');
-                          vm.setFiltroRol('todos');
-                          vm.setFiltroEstado('todos');
-                        }}
+                        onClick={vm.limpiarFiltros}
                         className="text-xs text-blue-600 font-semibold underline hover:text-blue-800"
                       >
                         Limpiar filtros
@@ -384,9 +462,9 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                             <button
                               type="button"
                               onClick={() => vm.abrirEditar(empleado)}
-                              disabled={Boolean(vm.accionModal)}
+                              disabled={!empleado.activo || Boolean(vm.accionModal)}
                               className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all shadow-xs disabled:opacity-40"
-                              title="Editar empleado (Lápiz)"
+                              title={empleado.activo ? 'Editar empleado (Lápiz)' : 'No se puede editar un empleado inactivo'}
                               aria-label={`Editar empleado ${empleado.nombre}`}
                             >
                               <Pencil className="h-3.5 w-3.5" />

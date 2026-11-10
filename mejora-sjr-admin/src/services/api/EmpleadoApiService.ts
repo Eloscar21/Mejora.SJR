@@ -12,28 +12,47 @@ function esId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
-/** Traduce y comprueba el contrato externo sin propagar campos adicionales. */
+function normalizarActivoBooleano(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return null;
+}
+
+/** Traduce y comprueba el contrato externo garantizando activo: boolean estricto (US-022). */
 function normalizarEmpleado(value: unknown, status: number): Empleado {
+  if (!esObjeto(value)) {
+    throw new ApiError('El servidor devolvió datos de empleado no válidos.', status);
+  }
+
+  const idUsuarioNum = Number(value.idUsuario);
+  const idRolNum = Number(value.idRol);
+  const idDeptoRaw = value.idDepartamento;
+  const idDeptoNum = idDeptoRaw === null || idDeptoRaw === undefined ? null : Number(idDeptoRaw);
+  const activoBooleano = normalizarActivoBooleano(value.activo);
+
   if (
-    !esObjeto(value) || !esId(value.idUsuario) ||
-    typeof value.nombre !== 'string' || typeof value.email !== 'string' ||
-    (value.idRol !== 2 && value.idRol !== 3) ||
-    (value.idDepartamento !== null && !esId(value.idDepartamento)) ||
-    ![true, false, 0, 1].includes(value.activo as boolean | number) ||
+    !esId(idUsuarioNum) ||
+    typeof value.nombre !== 'string' ||
+    typeof value.email !== 'string' ||
+    (idRolNum !== 2 && idRolNum !== 3) ||
+    (idDeptoNum !== null && !esId(idDeptoNum)) ||
+    activoBooleano === null ||
     (value.rolNombre !== undefined && typeof value.rolNombre !== 'string') ||
-    (value.departamentoNombre !== undefined && value.departamentoNombre !== null &&
+    (value.departamentoNombre !== undefined &&
+      value.departamentoNombre !== null &&
       typeof value.departamentoNombre !== 'string')
   ) {
     throw new ApiError('El servidor devolvió datos de empleado no válidos.', status);
   }
 
   return {
-    idUsuario: value.idUsuario,
+    idUsuario: idUsuarioNum,
     nombre: value.nombre,
     email: value.email,
-    idRol: value.idRol,
-    idDepartamento: value.idDepartamento,
-    activo: value.activo === true || value.activo === 1,
+    idRol: idRolNum,
+    idDepartamento: idDeptoNum,
+    activo: activoBooleano,
     ...(typeof value.rolNombre === 'string' ? { rolNombre: value.rolNombre } : {}),
     ...(value.departamentoNombre !== undefined
       ? { departamentoNombre: value.departamentoNombre as string | null }
