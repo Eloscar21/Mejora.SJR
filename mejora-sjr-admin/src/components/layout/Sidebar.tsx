@@ -1,10 +1,11 @@
 /**
  * Sidebar.tsx
  * Barra lateral fija en azul marino institucional para el Panel de Administración Mejora SJR.
- * 
- * Requerimiento US-006:
+ *
+ * Requerimiento US-006 / US-026 / US-027:
  * - "Sidebar fijo azul marino."
- * - Navegación visual y control de cierre de sesión.
+ * - Navegación hacia Dashboard Ejecutivo, Personal Municipal, Bandeja de Incidencias (/dashboard/incidencias)
+ *   y Administración de Catálogos Municipales (/dashboard/catalogos).
  */
 
 'use client';
@@ -12,16 +13,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  Building2, 
-  LayoutDashboard, 
-  AlertCircle, 
-  Database, 
-  Settings, 
-  LogOut, 
+import {
+  Building2,
+  LayoutDashboard,
+  AlertCircle,
+  Database,
+  Settings,
+  LogOut,
   ShieldCheck,
-  UserCheck,
-  Users
+  Users,
 } from 'lucide-react';
 import { AuthApiService } from '../../services/api/AuthApiService';
 
@@ -39,8 +39,8 @@ export const Sidebar: React.FC = () => {
   const navItems = [
     { label: 'Dashboard Ejecutivo', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Personal Municipal', href: '/admin/personal', icon: Users, badge: 'US-009' },
-    { label: 'Incidencias', href: '/dashboard/incidencias', icon: AlertCircle, badge: 'Próximamente' },
-    { label: 'Catálogos', href: '/dashboard/catalogos', icon: Database, badge: 'US-002' },
+    { label: 'Incidencias', href: '/dashboard/incidencias', icon: AlertCircle, badge: 'US-026' },
+    { label: 'Catálogos', href: '/dashboard/catalogos', icon: Database, badge: 'US-027' },
     { label: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
   ];
 
@@ -94,9 +94,11 @@ export const Sidebar: React.FC = () => {
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
-                  isActive ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'
-                }`}>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                    isActive ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
                   {item.badge}
                 </span>
               )}
