@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Modal, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useReporteViewModel } from '../viewModels/useReporteViewModel';
+import type { useReportesCiudadanoViewModel } from '../viewModels/useReportesCiudadanoViewModel';
 import { CustomPicker } from '../components/CustomPicker';
 import { CustomInput } from '../components/CustomInput';
 import { CustomButton } from '../components/CustomButton';
@@ -34,16 +34,20 @@ function ReportSection({ number, title, description, children }: ReportSectionPr
   );
 }
 
-/** Formulario ciudadano: representa el ViewModel y señala las simulaciones de US-017. */
-export const CrearReporteView: React.FC = () => {
+interface CrearReporteViewProps { viewModel: ReturnType<typeof useReportesCiudadanoViewModel>['formulario'] }
+
+/** Presentación de US-024: envío real con ubicación e imagen de ejemplo explícitas. */
+export const CrearReporteView: React.FC<CrearReporteViewProps> = ({ viewModel }) => {
   const {
-    session, departamentosItems, categoriasItems, isLoadingCatalogos, errorCatalogos,
-    selectedDepartamento, selectedCategoria, descripcion, direccionReferencia,
-    coordenadas, fotoEvidenciaUri, errors, isSubmitting, folioCreado, cargarCatalogos,
+    session, departamentosItems, categoriasItems, isLoadingCatalogos, errorCatalogos, catalogosDisponibles,
+    selectedDepartamento, selectedCategoria, descripcion, referenciaUbicacion,
+    coordenadas, fotoEvidencia, fotoIntento, estadoFoto, errors, isSubmitting, reporteCreado, cargarCatalogos,
+    formularioBloqueado, puedeEnviar, puedeAdjuntarFoto,
+    verMisReportes, mensajeComprobacion,
     handleDepartamentoChange, handleCategoriaChange, handleDescripcionChange,
-    handleDireccionChange, handleAdjuntarFoto, handleEliminarFoto,
+    handleAdjuntarFoto, handleEliminarFoto, handleFotoCargada, handleFotoError, handleReintentarFoto,
     handleSubmitReporte, cerrarModalExito, cerrarSesion,
-  } = useReporteViewModel();
+  } = viewModel;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -57,6 +61,7 @@ export const CrearReporteView: React.FC = () => {
                 <Text style={styles.brandCaption}>San Juan del Río</Text>
               </View>
             </View>
+            <CustomButton title="Mis reportes" variant="outline" onPress={verMisReportes} disabled={isSubmitting} />
             <TouchableOpacity
               accessibilityRole="button" accessibilityLabel="Cerrar sesión"
               style={styles.logoutButton} onPress={cerrarSesion} activeOpacity={0.7}
@@ -84,8 +89,8 @@ export const CrearReporteView: React.FC = () => {
             </View>
 
             <View style={styles.demoNotice}>
-              <Text style={styles.demoTitle}>Modo demostración</Text>
-              <Text style={styles.demoText}>La foto, la ubicación y el envío son ejemplos. Este formulario no guarda reportes reales.</Text>
+              <Text style={styles.demoTitle}>Ubicación y fotografía de ejemplo</Text>
+              <Text style={styles.demoText}>Usaremos datos de ejemplo para la ubicación y la imagen. Al enviar, el reporte sí se guardará en el sistema.</Text>
             </View>
 
             {errorCatalogos && (
@@ -93,13 +98,24 @@ export const CrearReporteView: React.FC = () => {
                 <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{errorCatalogos}</Text>
                 <CustomButton
                   title="Reintentar catálogos" variant="outline" onPress={cargarCatalogos}
-                  isLoading={isLoadingCatalogos} accessibilityRole="button"
+                  isLoading={isLoadingCatalogos} disabled={formularioBloqueado} accessibilityRole="button"
                 />
+              </View>
+            )}
+            {!isLoadingCatalogos && !errorCatalogos && !catalogosDisponibles && (
+              <View style={styles.errorCard}>
+                <Text accessibilityRole="alert" style={styles.errorText}>No hay catálogos disponibles para crear un reporte.</Text>
+                <CustomButton title="Actualizar catálogos" variant="outline" onPress={cargarCatalogos} disabled={formularioBloqueado} />
               </View>
             )}
             {errors.general && (
               <View style={styles.errorCard}>
                 <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{errors.general}</Text>
+              </View>
+            )}
+            {mensajeComprobacion && (
+              <View style={styles.demoNotice}>
+                <Text accessibilityRole="alert" style={styles.demoText}>{mensajeComprobacion}</Text>
               </View>
             )}
 
@@ -108,32 +124,29 @@ export const CrearReporteView: React.FC = () => {
                 label="Departamento" placeholder="Selecciona un departamento"
                 items={departamentosItems} selectedValue={selectedDepartamento}
                 onValueChange={handleDepartamentoChange} isLoading={isLoadingCatalogos}
+                disabled={formularioBloqueado}
                 hasError={Boolean(errors.departamento)} errorMessage={errors.departamento}
               />
               <CustomPicker
                 label="Categoría" placeholder="Selecciona una categoría"
                 items={categoriasItems} selectedValue={selectedCategoria}
                 onValueChange={handleCategoriaChange} isLoading={isLoadingCatalogos}
+                disabled={formularioBloqueado}
                 hasError={Boolean(errors.categoria)} errorMessage={errors.categoria}
               />
               <CustomInput
                 label="Descripción" accessibilityLabel="Descripción del problema"
                 placeholder="Por ejemplo: hay una fuga de agua frente al parque."
                 value={descripcion} onChangeText={handleDescripcionChange}
+                editable={!formularioBloqueado}
                 multiline numberOfLines={4} style={styles.textArea}
                 hasError={Boolean(errors.descripcion)} errorMessage={errors.descripcion}
               />
               <Text style={styles.supportingText}>{descripcion.length} caracteres · mínimo 10</Text>
             </ReportSection>
 
-            <ReportSection number="02" title="¿Dónde ocurre?" description="Escribe una referencia que ayude a encontrar el lugar.">
-              <CustomInput
-                label="Dirección o referencia" accessibilityLabel="Dirección o referencia del problema"
-                placeholder="Calle, colonia y un punto de referencia"
-                value={direccionReferencia} onChangeText={handleDireccionChange}
-                hasError={Boolean(errors.direccion)} errorMessage={errors.direccion}
-                returnKeyType="done"
-              />
+            <ReportSection number="02" title="Ubicación del reporte" description="En esta etapa se utilizarán las siguientes coordenadas de ejemplo.">
+              <Text style={styles.supportingText}>{referenciaUbicacion}</Text>
               <View style={styles.locationCard}>
                 <View style={styles.locationHeading}>
                   <Text style={styles.locationTitle}>Ubicación de ejemplo</Text>
@@ -153,20 +166,27 @@ export const CrearReporteView: React.FC = () => {
               </View>
             </ReportSection>
 
-            <ReportSection number="03" title="Evidencia de ejemplo" description="Opcional. Explora cómo se verá una fotografía adjunta.">
-              {fotoEvidenciaUri ? (
+            <ReportSection number="03" title="Evidencia de ejemplo" description="Opcional. Añade una imagen que corresponda a la categoría seleccionada.">
+              {fotoEvidencia ? (
                 <View style={styles.photoCard}>
                   <Image
-                    source={{ uri: fotoEvidenciaUri }} style={styles.imagePreview} resizeMode="cover"
+                    key={fotoIntento} source={{ uri: fotoEvidencia.url }} style={styles.imagePreview} resizeMode="cover"
+                    onLoad={() => handleFotoCargada(fotoIntento)} onError={() => handleFotoError(fotoIntento)}
                     accessibilityLabel="Fotografía de ejemplo; no fue tomada con la cámara del dispositivo"
                   />
                   <View style={styles.photoCaption}>
-                    <Text style={styles.photoLabel}>Fotografía de demostración</Text>
-                    <Text style={styles.supportingText}>Imagen de ejemplo, no evidencia enviada.</Text>
+                    <Text style={styles.photoLabel}>Fotografía de ejemplo</Text>
+                    <Text style={styles.supportingText}>{fotoEvidencia.descripcion}</Text>
+                    <Text style={styles.supportingText}>{fotoEvidencia.credito}</Text>
+                    <Text style={styles.supportingText}>{estadoFoto === 'loading'
+                      ? 'Cargando imagen de ejemplo. Puedes enviar el reporte sin esperar.'
+                      : estadoFoto === 'error'
+                        ? 'Error al cargar la imagen de ejemplo. Puedes enviar sin foto.'
+                        : 'Imagen de ejemplo disponible para adjuntar al reporte.'}</Text>
                   </View>
                   <TouchableOpacity
                     accessibilityRole="button" accessibilityLabel="Quitar fotografía de ejemplo"
-                    style={styles.removePhotoButton} onPress={handleEliminarFoto} activeOpacity={0.7}
+                    style={styles.removePhotoButton} onPress={handleEliminarFoto} disabled={formularioBloqueado} activeOpacity={0.7}
                   >
                     <Text style={styles.removePhotoText}>Quitar foto de ejemplo</Text>
                   </TouchableOpacity>
@@ -174,42 +194,46 @@ export const CrearReporteView: React.FC = () => {
               ) : (
                 <TouchableOpacity
                   accessibilityRole="button" accessibilityLabel="Añadir una fotografía de ejemplo sin abrir la cámara"
-                  style={styles.addPhotoButton} onPress={handleAdjuntarFoto} activeOpacity={0.7}
+                  style={styles.addPhotoButton} onPress={handleAdjuntarFoto} disabled={!puedeAdjuntarFoto} activeOpacity={0.7}
                 >
                   <View style={styles.cameraIcon} accessible={false}>
                     <View style={styles.cameraTop} /><View style={styles.cameraLens} />
                   </View>
                   <Text style={styles.addPhotoText}>Añadir foto de ejemplo</Text>
-                  <Text style={styles.supportingText}>No abre la cámara ni solicita permisos.</Text>
+                  <Text style={styles.supportingText}>Selecciona una categoría. Usaremos su imagen de ejemplo sin abrir la cámara.</Text>
                 </TouchableOpacity>
+              )}
+              {errors.foto && <Text accessibilityRole="alert" style={styles.errorText}>{errors.foto}</Text>}
+              {estadoFoto === 'error' && (
+                <CustomButton title="Reintentar imagen" variant="outline" onPress={handleReintentarFoto} disabled={formularioBloqueado} />
               )}
             </ReportSection>
 
             <View style={styles.submitCard}>
-              <Text style={styles.submitTitle}>Revisa tu ejemplo</Text>
-              <Text style={styles.submitDescription}>Puedes probar la validación y ver un folio de demostración.</Text>
+              <Text style={styles.submitTitle}>Revisa y envía tu reporte</Text>
+              <Text style={styles.submitDescription}>Confirmaremos el registro cuando el sistema responda con tu número de reporte.</Text>
               <CustomButton
-                title="Simular envío" onPress={handleSubmitReporte} isLoading={isSubmitting}
-                accessibilityRole="button" accessibilityLabel="Simular envío de reporte"
-                accessibilityState={{ busy: isSubmitting }}
+                title="Enviar reporte" onPress={handleSubmitReporte} isLoading={isSubmitting} disabled={!puedeEnviar}
+                accessibilityRole="button" accessibilityLabel="Enviar reporte"
+                accessibilityState={{ busy: isSubmitting, disabled: !puedeEnviar }}
               />
-              <Text style={styles.submitNote}>No se enviará información a una dependencia municipal.</Text>
+              <Text style={styles.submitNote}>La ubicación y la fotografía utilizadas son de ejemplo.</Text>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={Boolean(folioCreado)} transparent animationType="fade" onRequestClose={cerrarModalExito}>
+      <Modal visible={Boolean(reporteCreado)} transparent animationType="fade" onRequestClose={cerrarModalExito}>
         <View style={styles.modalOverlay}>
           <SafeAreaView style={styles.modalSafeArea}>
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.modalCard} accessibilityViewIsModal>
                 <View style={styles.modalIcon} accessible={false}><Text style={styles.modalIconText}>✓</Text></View>
-                <Text accessibilityRole="header" style={styles.modalTitle}>Simulación completada</Text>
-                <Text style={styles.modalDescription}>Así se verá la confirmación. Este reporte no se guardó ni se envió a una dependencia.</Text>
+                <Text accessibilityRole="header" style={styles.modalTitle}>Reporte registrado</Text>
+                <Text style={styles.modalDescription}>Tu reporte quedó guardado con estado Recibido. Conserva su número para consultarlo.</Text>
                 <View style={styles.folioBox}>
-                  <Text style={styles.folioLabel}>FOLIO DE DEMOSTRACIÓN</Text>
-                  <Text selectable style={styles.folioNumber}>{folioCreado}</Text>
+                  <Text style={styles.folioLabel}>NÚMERO DE REPORTE</Text>
+                  <Text selectable style={styles.folioNumber}>#{reporteCreado?.idIncidencia}</Text>
                 </View>
                 <CustomButton
                   title="Volver al formulario" onPress={cerrarModalExito}
@@ -228,8 +252,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   header: { backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  headerContent: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: SPACING.md },
-  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, minWidth: 0 },
+  headerContent: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: SPACING.md },
+  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, minWidth: 160 },
   brandMark: { width: 42, height: 42, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: COLORS.accent },
   brandMarkText: { fontSize: 13, fontWeight: '800', color: COLORS.textInverse },
   brandName: { fontSize: 17, fontWeight: '700', color: COLORS.primary },

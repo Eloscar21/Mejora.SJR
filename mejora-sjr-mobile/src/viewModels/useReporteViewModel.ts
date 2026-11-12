@@ -1,260 +1,291 @@
-/**
- * useReporteViewModel.ts
- * ViewModel para la pantalla de "Crear Reporte / Nuevo Reporte" (US-004).
- * 
- * Principios aplicados:
- * - MVVM: Desacopla la vista de la obtención de catálogos y gestión de datos de la incidencia.
- * - DIP: Consume la abstracción ICatalogoService inyectada desde el proveedor.
- * - SRP: Orquesta la consulta de catálogos de US-002, filtrado de categorías dependientes, validación visual y registro del reporte.
- */
-
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../providers/AuthProvider';
-import { Departamento, Categoria, PickerItem } from '../models/catalogo.types';
-import { NuevaIncidenciaDTO } from '../models/incidencia.types';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { UsuarioSession } from '../models/auth.types';
+import type { Departamento, Categoria, PickerItem } from '../models/catalogo.types';
+import type { NuevaIncidenciaDTO, ReporteCreado } from '../models/incidencia.types';
+import type { FotoReporteEjemplo } from '../models/reporteEjemplo.types';
+import { coincideConBorrador, type ReporteCiudadano } from '../models/reporteCiudadano.types';
+import type { ICatalogoService } from '../services/contracts/ICatalogoService';
+import type { IReporteSubmissionService } from '../services/contracts/IReporteSubmissionService';
+import type { IReporteEjemploService } from '../services/contracts/IReporteEjemploService';
 
 export interface ReporteErrors {
   departamento?: string;
   categoria?: string;
   descripcion?: string;
-  direccion?: string;
+  foto?: string;
   general?: string;
 }
 
-export function useReporteViewModel() {
-  const { catalogoService, session, cerrarSesion: cerrarSesionActual } = useAuth();
+export interface ReporteViewModelDependencies {
+  catalogoService: ICatalogoService;
+  submissionService: IReporteSubmissionService;
+  ejemplosService: IReporteEjemploService;
+  session: UsuarioSession | null;
+  onCerrarSesion: () => Promise<void>;
+  onPendienteChange?: (datos: NuevaIncidenciaDTO | null) => void;
+}
 
-  const cerrarSesion = useCallback(async () => {
-    try {
-      await cerrarSesionActual();
-    } catch {
-      // El proveedor representa el fallo en SessionClosingView y permite reintentar.
-    }
-  }, [cerrarSesionActual]);
+type EstadoEnvio = 'idle' | 'pending' | 'unknown' | 'confirmed';
+type EstadoFoto = 'idle' | 'loading' | 'ready' | 'error';
 
-  // Estados de Catálogos (US-004)
+/** Coordina el formulario mediante contratos; las entradas de ejemplo no simulan el guardado. */
+export function useReporteViewModel({
+  catalogoService, submissionService, ejemplosService, session, onCerrarSesion, onPendienteChange,
+}: ReporteViewModelDependencies) {
+  const activoRef = useRef(true);
+  const catalogoVersionRef = useRef(0);
+  const envioRef = useRef<EstadoEnvio>('idle');
+  const fotoVersionRef = useRef(0);
+  const fotoActualRef = useRef<{ foto: FotoReporteEjemplo; intento: number } | null>(null);
+  const solicitudPendienteRef = useRef<NuevaIncidenciaDTO | null>(null);
+  const formularioVersionRef = useRef(0);
+  const versionFormulario = formularioVersionRef.current;
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [isLoadingCatalogos, setIsLoadingCatalogos] = useState<boolean>(true);
+  const [isLoadingCatalogos, setIsLoadingCatalogos] = useState(true);
   const [errorCatalogos, setErrorCatalogos] = useState<string | null>(null);
-
-  // Estados del Formulario de Incidencia
   const [selectedDepartamento, setSelectedDepartamento] = useState<number | null>(null);
   const [selectedCategoria, setSelectedCategoria] = useState<number | null>(null);
-  const [descripcion, setDescripcion] = useState<string>('');
-  const [direccionReferencia, setDireccionReferencia] = useState<string>(
-    'Av. Juárez Ote. #45, Col. Centro, San Juan del Río'
-  );
-  const [fotoEvidenciaUri, setFotoEvidenciaUri] = useState<string | null>(null);
-  const [coordenadas] = useState({ lat: 20.3889, lng: -99.9961 }); // Centro SJR
-
-  // Estados de Validación y Envío
+  const [descripcion, setDescripcion] = useState('');
+  const [fotoEvidencia, setFotoEvidencia] = useState<FotoReporteEjemplo | null>(null);
+  const [fotoIntento, setFotoIntento] = useState(0);
+  const [estadoFoto, setEstadoFoto] = useState<EstadoFoto>('idle');
   const [errors, setErrors] = useState<ReporteErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [folioCreado, setFolioCreado] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultadoDesconocido, setResultadoDesconocido] = useState(false);
+  const [reporteCreado, setReporteCreado] = useState<ReporteCreado | null>(null);
+  const [mensajeComprobacion, setMensajeComprobacion] = useState<string | null>(null);
+  const ubicacion = useMemo(() => ejemplosService.obtenerUbicacion(), [ejemplosService]);
 
-  // Cargar Catálogos Municipales (Consumo del endpoint US-002 según US-004)
+  useEffect(() => {
+    activoRef.current = true;
+    return () => {
+      activoRef.current = false;
+      catalogoVersionRef.current++;
+    };
+  }, []);
+
+  const cerrarSesion = useCallback(async () => {
+    try { await onCerrarSesion(); } catch {
+      // AuthProvider representa el fallo y bloquea el login hasta completar el cierre.
+    }
+  }, [onCerrarSesion]);
+
+  const limpiarError = useCallback((campo: keyof ReporteErrors) => {
+    setErrors(prev => { const next = { ...prev }; delete next[campo]; return next; });
+  }, []);
+
+  const limpiarFoto = useCallback(() => {
+    fotoActualRef.current = null;
+    setFotoIntento(++fotoVersionRef.current);
+    setFotoEvidencia(null);
+    setEstadoFoto('idle');
+    limpiarError('foto');
+  }, [limpiarError]);
+
   const cargarCatalogos = useCallback(async () => {
+    if (envioRef.current !== 'idle') return;
+    const version = ++catalogoVersionRef.current;
     setIsLoadingCatalogos(true);
     setErrorCatalogos(null);
     try {
-      const [deptosData, catsData] = await Promise.all([
-        catalogoService.obtenerDepartamentos(),
-        catalogoService.obtenerCategorias(),
+      const [deptos, cats] = await Promise.all([
+        catalogoService.obtenerDepartamentos(), catalogoService.obtenerCategorias(),
       ]);
-      setDepartamentos(deptosData);
-      setCategorias(catsData);
-    } catch (err: any) {
-      setErrorCatalogos(err?.message || 'Error al cargar los catálogos municipales.');
+      if (!activoRef.current || version !== catalogoVersionRef.current) return;
+      setDepartamentos(deptos);
+      setCategorias(cats);
+    } catch (error: unknown) {
+      if (activoRef.current && version === catalogoVersionRef.current) {
+        setErrorCatalogos(error instanceof Error ? error.message : 'No se pudieron cargar los catálogos.');
+      }
     } finally {
-      setIsLoadingCatalogos(false);
+      if (activoRef.current && version === catalogoVersionRef.current) setIsLoadingCatalogos(false);
     }
   }, [catalogoService]);
 
-  useEffect(() => {
-    cargarCatalogos();
-  }, [cargarCatalogos]);
+  useEffect(() => { void cargarCatalogos(); }, [cargarCatalogos]);
 
-  // Items para el Picker de Departamentos
-  const departamentosItems = useMemo<PickerItem<number>[]>(() => {
-    return departamentos.map((d) => ({
-      label: d.nombre,
-      value: d.idDepartamento,
-    }));
-  }, [departamentos]);
+  const departamentosItems = useMemo<PickerItem<number>[]>(() => departamentos.map(depto => ({
+    label: depto.nombre, value: depto.idDepartamento,
+  })), [departamentos]);
 
-  // Items para el Picker de Categorías (Filtradas reactivamente según el departamento seleccionado)
   const categoriasItems = useMemo<PickerItem<number>[]>(() => {
-    const list = selectedDepartamento
-      ? categorias.filter((c) => c.idDepartamento === selectedDepartamento)
-      : categorias;
-
-    return list.map((c) => ({
-      label: c.nombre,
-      value: c.idCategoria,
-      extraInfo: c.departamentoNombre,
-    }));
+    const visibles = selectedDepartamento ? categorias.filter(cat => cat.idDepartamento === selectedDepartamento) : categorias;
+    return visibles.map(cat => ({ label: cat.nombre, value: cat.idCategoria, extraInfo: cat.departamentoNombre }));
   }, [categorias, selectedDepartamento]);
 
-  // Manejador del cambio de departamento
-  const handleDepartamentoChange = useCallback(
-    (idDepto: number) => {
-      setSelectedDepartamento(idDepto);
-      // Si la categoría seleccionada no pertenece al nuevo departamento, resetearla
-      if (selectedCategoria) {
-        const cat = categorias.find((c) => c.idCategoria === selectedCategoria);
-        if (cat && cat.idDepartamento !== idDepto) {
-          setSelectedCategoria(null);
-        }
-      }
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.departamento;
-        return next;
-      });
-    },
-    [categorias, selectedCategoria]
-  );
+  const handleDepartamentoChange = useCallback((idDepartamento: number) => {
+    if (envioRef.current !== 'idle') return;
+    if (!departamentos.some(depto => depto.idDepartamento === idDepartamento)) return;
+    setSelectedDepartamento(idDepartamento);
+    const categoria = categorias.find(cat => cat.idCategoria === selectedCategoria);
+    if (categoria && categoria.idDepartamento !== idDepartamento) {
+      setSelectedCategoria(null);
+      limpiarFoto();
+    }
+    limpiarError('departamento');
+  }, [departamentos, categorias, selectedCategoria, limpiarFoto, limpiarError]);
 
-  // Manejador del cambio de categoría
-  const handleCategoriaChange = useCallback(
-    (idCat: number) => {
-      setSelectedCategoria(idCat);
-      // Auto-seleccionar el departamento padre correspondiente
-      const cat = categorias.find((c) => c.idCategoria === idCat);
-      if (cat && cat.idDepartamento !== selectedDepartamento) {
-        setSelectedDepartamento(cat.idDepartamento);
-      }
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.categoria;
-        return next;
-      });
-    },
-    [categorias, selectedDepartamento]
-  );
+  const handleCategoriaChange = useCallback((idCategoria: number) => {
+    if (envioRef.current !== 'idle') return;
+    const categoria = categorias.find(cat => cat.idCategoria === idCategoria);
+    if (!categoria) return;
+    if (idCategoria !== selectedCategoria) limpiarFoto();
+    setSelectedCategoria(idCategoria);
+    setSelectedDepartamento(categoria.idDepartamento);
+    limpiarError('categoria');
+    limpiarError('departamento');
+  }, [categorias, selectedCategoria, limpiarFoto, limpiarError]);
 
   const handleDescripcionChange = useCallback((text: string) => {
+    if (envioRef.current !== 'idle') return;
     setDescripcion(text);
-    if (errors.descripcion) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.descripcion;
-        return next;
-      });
-    }
-  }, [errors]);
+    limpiarError('descripcion');
+  }, [limpiarError]);
 
-  const handleDireccionChange = useCallback((text: string) => {
-    setDireccionReferencia(text);
-    if (errors.direccion) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next.direccion;
-        return next;
-      });
-    }
-  }, [errors]);
-
-  // Simular toma o carga de foto de evidencia
   const handleAdjuntarFoto = useCallback(() => {
-    // Generar URI de evidencia simulada para San Juan del Río
-    const mockUris = [
-      'https://images.unsplash.com/photo-1541888946425-d0fbb186fb4b?w=600',
-      'https://images.unsplash.com/photo-1584467735871-8e85353a8413?w=600',
-      'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600',
-    ];
-    const randomUri = mockUris[Math.floor(Math.random() * mockUris.length)];
-    setFotoEvidenciaUri(randomUri);
-  }, []);
+    if (envioRef.current !== 'idle') return;
+    const categoria = categorias.find(cat => cat.idCategoria === selectedCategoria);
+    if (!categoria) {
+      setErrors(prev => ({ ...prev, categoria: 'Selecciona una categoría antes de añadir su foto de ejemplo.' }));
+      return;
+    }
+    const foto = ejemplosService.obtenerFoto(categoria);
+    if (!foto) {
+      setErrors(prev => ({ ...prev, foto: 'Esta categoría todavía no tiene una imagen de ejemplo. Puedes enviar sin foto.' }));
+      return;
+    }
+    const intento = ++fotoVersionRef.current;
+    fotoActualRef.current = { foto, intento };
+    setFotoIntento(intento);
+    setFotoEvidencia(foto);
+    setEstadoFoto('loading');
+    limpiarError('foto');
+  }, [categorias, selectedCategoria, ejemplosService, limpiarError]);
 
   const handleEliminarFoto = useCallback(() => {
-    setFotoEvidenciaUri(null);
+    if (envioRef.current === 'idle') limpiarFoto();
+  }, [limpiarFoto]);
+
+  const handleFotoCargada = useCallback((intento: number) => {
+    if (!activoRef.current || fotoActualRef.current?.intento !== intento) return;
+    setEstadoFoto('ready');
+    limpiarError('foto');
+  }, [limpiarError]);
+
+  const handleFotoError = useCallback((intento: number) => {
+    if (!activoRef.current || fotoActualRef.current?.intento !== intento) return;
+    setEstadoFoto('error');
+    setErrors(prev => ({ ...prev, foto: 'No se pudo cargar la imagen de ejemplo. Puedes enviar el reporte sin foto.' }));
   }, []);
 
-  // Validación Visual (Rojo en error)
-  const validarFormulario = (): boolean => {
-    const newErrors: ReporteErrors = {};
+  const handleReintentarFoto = useCallback(() => {
+    if (envioRef.current !== 'idle' || !fotoActualRef.current) return;
+    const intento = ++fotoVersionRef.current;
+    fotoActualRef.current = { foto: fotoActualRef.current.foto, intento };
+    setFotoIntento(intento);
+    setEstadoFoto('loading');
+    limpiarError('foto');
+  }, [limpiarError]);
 
-    if (!selectedDepartamento) {
-      newErrors.departamento = 'Debes seleccionar el departamento correspondiente.';
-    }
+  const sesionCiudadana = session?.idRol === 1 && Number.isSafeInteger(session.idUsuario) && session.idUsuario > 0;
+  const formularioBloqueado = isSubmitting || resultadoDesconocido || reporteCreado !== null;
+  const catalogosDisponibles = departamentos.length > 0 && categorias.length > 0;
+  const puedeAdjuntarFoto = !formularioBloqueado && selectedCategoria !== null;
+  const puedeEnviar = sesionCiudadana && !formularioBloqueado && !isLoadingCatalogos && !errorCatalogos && catalogosDisponibles;
 
-    if (!selectedCategoria) {
-      newErrors.categoria = 'Debes seleccionar la categoría de la incidencia.';
-    }
-
-    if (!descripcion.trim()) {
-      newErrors.descripcion = 'Por favor describe la problemática observada.';
-    } else if (descripcion.trim().length < 10) {
-      newErrors.descripcion = 'La descripción debe tener al menos 10 caracteres.';
-    }
-
-    if (!direccionReferencia.trim()) {
-      newErrors.direccion = 'La dirección o referencia del reporte es obligatoria.';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Enviar Reporte de Incidencia
   const handleSubmitReporte = useCallback(async () => {
-    if (!validarFormulario()) return;
+    if (!activoRef.current || envioRef.current !== 'idle' || versionFormulario !== formularioVersionRef.current) return;
+    const newErrors: ReporteErrors = {};
+    const categoria = categorias.find(cat => cat.idCategoria === selectedCategoria);
+    if (!departamentos.some(depto => depto.idDepartamento === selectedDepartamento)) {
+      newErrors.departamento = 'Selecciona un departamento del catálogo.';
+    }
+    if (!categoria || categoria.idDepartamento !== selectedDepartamento) {
+      newErrors.categoria = 'Selecciona una categoría válida del departamento.';
+    }
+    if (descripcion.trim().length < 10) newErrors.descripcion = 'La descripción debe tener al menos 10 caracteres.';
+    if (!sesionCiudadana) newErrors.general = 'Inicia sesión como ciudadano para enviar reportes.';
+    if (isLoadingCatalogos || errorCatalogos || !catalogosDisponibles) {
+      newErrors.general = 'Necesitamos cargar los catálogos antes de enviar.';
+    }
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length) return;
 
+    const datos: NuevaIncidenciaDTO = {
+      descripcion: descripcion.trim(),
+      idCategoria: selectedCategoria!,
+      latitud: ubicacion.latitud,
+      longitud: ubicacion.longitud,
+      ...(fotoEvidencia && estadoFoto === 'ready' ? { fotoUrl: fotoEvidencia.url } : {}),
+    };
+    envioRef.current = 'pending';
+    solicitudPendienteRef.current = datos;
+    setMensajeComprobacion(null);
     setIsSubmitting(true);
-    setErrors({});
-
     try {
-      await new Promise((r) => setTimeout(r, 700)); // Latencia de procesamiento
-
-      const randomFolio = `SJR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      setFolioCreado(randomFolio);
-
-      // Limpiar formulario tras éxito
+      const creado = await submissionService.crearReporte(datos);
+      if (!activoRef.current) return;
+      envioRef.current = 'confirmed';
+      formularioVersionRef.current++;
+      solicitudPendienteRef.current = null;
+      onPendienteChange?.(null);
+      setReporteCreado(creado);
       setSelectedDepartamento(null);
       setSelectedCategoria(null);
       setDescripcion('');
-      setFotoEvidenciaUri(null);
-    } catch (err: any) {
-      setErrors({
-        general: err?.message || 'Error al enviar el reporte. Por favor intenta de nuevo.',
-      });
+      limpiarFoto();
+      setErrors({});
+    } catch (error: unknown) {
+      if (!activoRef.current) return;
+      const desconocido = typeof error === 'object' && error !== null &&
+        'resultadoDesconocido' in error && error.resultadoDesconocido === true;
+      envioRef.current = desconocido ? 'unknown' : 'idle';
+      solicitudPendienteRef.current = desconocido ? datos : null;
+      onPendienteChange?.(desconocido ? datos : null);
+      setResultadoDesconocido(desconocido);
+      setErrors({ general: desconocido
+        ? 'No pudimos confirmar el guardado. Conservamos tus datos; comprueba Mis reportes antes de volver a enviar.'
+        : error instanceof Error ? error.message : 'No se pudo guardar el reporte. Conservamos tus datos.' });
     } finally {
-      setIsSubmitting(false);
+      if (activoRef.current) setIsSubmitting(false);
     }
-  }, [selectedDepartamento, selectedCategoria, descripcion, direccionReferencia]);
+  }, [categorias, departamentos, selectedCategoria, selectedDepartamento, descripcion, sesionCiudadana,
+    isLoadingCatalogos, errorCatalogos, catalogosDisponibles, fotoEvidencia, estadoFoto, ubicacion, submissionService, limpiarFoto, onPendienteChange, versionFormulario]);
+
+  const confirmarReporteExistente = useCallback((reporte: ReporteCiudadano): boolean => {
+    if (!activoRef.current || envioRef.current !== 'unknown' || !solicitudPendienteRef.current ||
+      reporte.idUsuario !== session?.idUsuario || !coincideConBorrador(reporte, solicitudPendienteRef.current)) return false;
+    envioRef.current = 'idle';
+    formularioVersionRef.current++;
+    solicitudPendienteRef.current = null;
+    onPendienteChange?.(null);
+    setResultadoDesconocido(false);
+    setSelectedDepartamento(null);
+    setSelectedCategoria(null);
+    setDescripcion('');
+    limpiarFoto();
+    setErrors({});
+    setMensajeComprobacion('Reporte #' + reporte.idIncidencia + ' comprobado en tu lista. No se volvió a enviar.');
+    return true;
+  }, [session?.idUsuario, limpiarFoto, onPendienteChange]);
 
   const cerrarModalExito = useCallback(() => {
-    setFolioCreado(null);
+    if (envioRef.current !== 'confirmed') return;
+    envioRef.current = 'idle';
+    setReporteCreado(null);
   }, []);
 
   return {
-    session,
-    departamentos,
-    categorias,
-    departamentosItems,
-    categoriasItems,
-    isLoadingCatalogos,
-    errorCatalogos,
-    selectedDepartamento,
-    selectedCategoria,
-    descripcion,
-    direccionReferencia,
-    coordenadas,
-    fotoEvidenciaUri,
-    errors,
-    isSubmitting,
-    folioCreado,
-    cargarCatalogos,
-    handleDepartamentoChange,
-    handleCategoriaChange,
-    handleDescripcionChange,
-    handleDireccionChange,
-    handleAdjuntarFoto,
-    handleEliminarFoto,
-    handleSubmitReporte,
-    cerrarModalExito,
-    cerrarSesion,
+    session, departamentos, categorias, departamentosItems, categoriasItems,
+    isLoadingCatalogos, errorCatalogos, catalogosDisponibles, selectedDepartamento, selectedCategoria, descripcion,
+    coordenadas: { lat: ubicacion.latitud, lng: ubicacion.longitud },
+    referenciaUbicacion: ubicacion.referencia,
+    fotoEvidencia, fotoIntento, estadoFoto, errors, isSubmitting, formularioBloqueado, puedeEnviar, puedeAdjuntarFoto,
+    resultadoDesconocido, reporteCreado, mensajeComprobacion, confirmarReporteExistente, cargarCatalogos,
+    handleDepartamentoChange, handleCategoriaChange, handleDescripcionChange,
+    handleAdjuntarFoto, handleEliminarFoto, handleFotoCargada, handleFotoError, handleReintentarFoto,
+    handleSubmitReporte, cerrarModalExito, cerrarSesion,
   };
 }

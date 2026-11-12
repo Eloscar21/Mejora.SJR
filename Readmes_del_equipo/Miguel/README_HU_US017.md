@@ -9,6 +9,8 @@
 
 ## 1. Objetivo y alcance acordado
 
+La evolución del formulario ciudadano con envío real y entradas de ejemplo se documenta en [US-024](README_HU_US024.md). Este documento conserva el alcance original de diseño/simulaciones de US-017.
+
 Ofrecer un formulario ciudadano claro y una bandeja de tareas legible, usando la paleta Mejora SJR y componentes adecuados para móvil. La bandeja es de solo consulta y filtros por decisión expresa de Miguel.
 
 La redacción original incluía acceso nativo a cámara/GPS. Miguel acordó entregar primero diseño con simulaciones: foto, coordenadas, envío, folio y tareas se identifican como ejemplos. No se guarda ni se turna una incidencia real. Cámara/GPS nativos, APIs de incidencias y atención de tareas quedan para otra etapa.

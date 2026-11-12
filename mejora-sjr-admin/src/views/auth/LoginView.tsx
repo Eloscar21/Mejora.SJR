@@ -4,14 +4,14 @@
  * 
  * Principios aplicados:
  * - MVVM (Dumb View / Componente de presentación): No contiene llamadas directas a APIs.
- * - Consume 'useLoginViewModel' para toda la reactividad y gestión de estados.
+ * - Recibe el ViewModel desde LoginProvider para estado y eventos.
  * - Estética Institucional Premium con identidad de San Juan del Río (Azul marino y blanco).
  */
 
 'use client';
 
 import React, { useState } from 'react';
-import { useLoginViewModel } from '../../viewModels/useLoginViewModel';
+import type { useLoginViewModel } from '../../viewModels/useLoginViewModel';
 import { 
   Building2, 
   ShieldCheck, 
@@ -28,7 +28,10 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-export const LoginView: React.FC = () => {
+export const LoginView: React.FC<{
+  viewModel: ReturnType<typeof useLoginViewModel>;
+  modoDemostracion?: boolean;
+}> = ({ viewModel, modoDemostracion = false }) => {
   const {
     email,
     password,
@@ -39,7 +42,7 @@ export const LoginView: React.FC = () => {
     handlePasswordChange,
     handleSubmit,
     setQuickCredentials
-  } = useLoginViewModel();
+  } = viewModel;
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -140,6 +143,11 @@ export const LoginView: React.FC = () => {
           )}
 
           {/* Banner Informativo */}
+          {modoDemostracion && (
+            <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Modo demostración: las credenciales se comprueban con datos de prueba, sin autenticar en el backend.
+            </p>
+          )}
           {infoMessage && (
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 flex items-start space-x-3 text-blue-800">
               <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />

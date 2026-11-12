@@ -1,6 +1,15 @@
 -- schema.sql
 -- Archivo DDL Maestro para Mejora SJR (Azure SQL)
 
+-- Opciones requeridas por el índice único filtrado de solicitudes pendientes.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
+
 -- BLOQUE 1: CATÁLOGOS Y ESTRUCTURAS BASE
 CREATE TABLE Roles (
     IdRol INT PRIMARY KEY,
@@ -95,6 +104,11 @@ CREATE TABLE SolicitudesPassword (
     CONSTRAINT FK_SolicitudesPassword_Superadmin FOREIGN KEY (IdSuperadminResolutor) REFERENCES Usuarios(IdUsuario),
     CONSTRAINT CHK_SolicitudPassword_Estado CHECK (Estado IN ('PENDIENTE', 'APROBADA', 'RECHAZADA'))
 );
+
+-- US-029: permite historial resuelto, pero una sola pendiente por cuenta.
+CREATE UNIQUE INDEX UX_SolicitudesPassword_Usuario_Pendiente
+    ON SolicitudesPassword (IdUsuario)
+    WHERE Estado = 'PENDIENTE';
 
 GO
 

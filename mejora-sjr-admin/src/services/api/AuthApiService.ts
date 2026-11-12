@@ -11,6 +11,7 @@
 import Cookies from 'js-cookie';
 import { IAuthService } from '../contracts/IAuthService';
 import { LoginCredentials, AuthResponse, UsuarioSession, DecodedToken } from '../../models/auth.types';
+import { ApiError } from './ApiError';
 
 export const TOKEN_COOKIE_NAME = 'mejora_sjr_token';
 export const USER_STORAGE_KEY = 'mejora_sjr_user';
@@ -23,17 +24,22 @@ export class AuthApiService implements IAuthService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        email: credentials.email.trim().toLowerCase(),
-        password: credentials.password
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email: credentials.email.trim().toLowerCase(),
+          password: credentials.password
+        })
+      });
+    } catch {
+      throw new ApiError('No se pudo conectar con el servidor. Comprueba la conexión e intenta de nuevo.', null);
+    }
 
     const data = await response.json();
 

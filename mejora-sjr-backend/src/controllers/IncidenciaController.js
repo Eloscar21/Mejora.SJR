@@ -12,6 +12,7 @@ class IncidenciaController {
     this.incidenciaService = incidenciaService;
     this.crear = this.crear.bind(this);
     this.listar = this.listar.bind(this);
+    this.listarMisReportes = this.listarMisReportes.bind(this);
     this.asignar = this.asignar.bind(this);
     this.descartar = this.descartar.bind(this);
   }
@@ -26,6 +27,16 @@ class IncidenciaController {
     return res.status(201).json({
       success: true,
       message: 'Reporte ciudadano registrado exitosamente.',
+      data: resultado
+    });
+  }
+
+  async listarMisReportes(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
+    const resultado = await this.incidenciaService.listarMisReportes(usuarioAutenticado);
+    return res.status(200).json({
+      success: true,
+      message: 'Tus reportes fueron recuperados exitosamente.',
       data: resultado
     });
   }

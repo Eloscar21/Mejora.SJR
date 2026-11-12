@@ -4,6 +4,7 @@
 const bcrypt = require('bcryptjs');
 const IUsuarioRepository = require('./IUsuarioRepository');
 
+/** @implements {import('./IUsuarioPasswordRepository')} */
 class MockUsuarioRepository extends IUsuarioRepository {
   constructor() {
     super();
@@ -82,6 +83,23 @@ class MockUsuarioRepository extends IUsuarioRepository {
   async buscarPorId(idUsuario) {
     const usuario = this.usuarios.find(u => u.idUsuario === Number(idUsuario));
     return usuario ? { ...usuario } : null;
+  }
+
+  async obtenerCredencialesPorId(idUsuario) {
+    const usuario = this.usuarios.find(u => u.idUsuario === idUsuario);
+    if (!usuario) return null;
+    const { idRol, activo, passwordHash } = usuario;
+    return { idUsuario: usuario.idUsuario, idRol, activo, passwordHash };
+  }
+
+  async cambiarPasswordSiCoincide({ idUsuario, idRol, passwordHashAnterior, nuevoPasswordHash }) {
+    // Sin await entre comparación y escritura: la operación en memoria es indivisible.
+    const usuario = this.usuarios.find(u => u.idUsuario === idUsuario);
+    if (!usuario || (usuario.activo !== true && usuario.activo !== 1) ||
+        usuario.idRol !== idRol || (idRol !== 3 && idRol !== 4) ||
+        usuario.passwordHash !== passwordHashAnterior) return false;
+    usuario.passwordHash = nuevoPasswordHash;
+    return true;
   }
 
   async listarEmpleadosActivos({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {

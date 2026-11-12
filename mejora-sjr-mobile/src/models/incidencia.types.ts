@@ -24,14 +24,35 @@ export interface Incidencia {
   direccionReferencia?: string;
 }
 
+/** Payload de POST /api/incidencias. Usuario y departamento se resuelven en el backend. */
 export interface NuevaIncidenciaDTO {
   descripcion: string;
-  idDepartamento: number;
   idCategoria: number;
   latitud: number;
   longitud: number;
-  direccionReferencia: string;
-  fotoUri?: string;
+  fotoUrl?: string;
+}
+
+/** Datos comunes de la evidencia inicial que devuelven los repositorios SQL y mock. */
+export interface EvidenciaInicialReporte {
+  idEvidencia: number;
+  idIncidencia: number;
+  tipoEvidencia: 'INICIAL';
+  fotoUrl: string;
+  fechaSubida: string;
+}
+
+/** Confirmación de creación de US-023; no exige los nombres enriquecidos del listado. */
+export interface ReporteCreado {
+  idIncidencia: number;
+  descripcion: string;
+  latitud: number;
+  longitud: number;
+  idUsuario: number;
+  idCategoria: number;
+  idEstado: 1;
+  fechaCreacion: string;
+  evidencias: EvidenciaInicialReporte[];
 }
 
 export const ESTADOS_INCIDENCIA = {

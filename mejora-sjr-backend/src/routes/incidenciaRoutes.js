@@ -30,6 +30,9 @@ const createIncidenciaRouter = (
   // POST /api/incidencias - Registro de incidencia ciudadana (US-023: Rol 1 Ciudadano)
   router.post('/', incidenciaController.crear);
 
+  // US-024: consulta propia del ciudadano, separada del listado administrativo.
+  router.get('/mis-reportes', authorizeRoles(1), incidenciaController.listarMisReportes);
+
   // GET /api/incidencias - Listado con RBAC dinámico (US-025: Roles 2, 3 y 4)
   router.get('/', authorizeRoles(2, 3, 4), incidenciaController.listar);
 

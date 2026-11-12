@@ -119,6 +119,27 @@ class IncidenciaService {
     return nuevaIncidencia;
   }
 
+  /** Consulta propia de US-024; la identidad procede exclusivamente del JWT autenticado. */
+  async listarMisReportes(usuarioAutenticado) {
+    if (!usuarioAutenticado) {
+      const error = new Error('No se pudo identificar al usuario autenticado.');
+      error.statusCode = 401;
+      throw error;
+    }
+    if (usuarioAutenticado.idRol !== 1) {
+      const error = new Error('Acceso denegado: Solo los ciudadanos pueden consultar sus reportes.');
+      error.statusCode = 403;
+      throw error;
+    }
+    if (!Number.isSafeInteger(usuarioAutenticado.idUsuario) || usuarioAutenticado.idUsuario <= 0) {
+      const error = new Error('La sesión no tiene una identidad ciudadana válida.');
+      error.statusCode = 401;
+      throw error;
+    }
+
+    return await this.incidenciaRepository.listarIncidencias({ idUsuario: usuarioAutenticado.idUsuario });
+  }
+
   /**
    * Listar incidencias con RBAC dinámico (US-025)
    * - Superadmin (Rol 4): lista todas las incidencias de todos los departamentos.

@@ -2,6 +2,13 @@
 'use strict';
 
 const bcrypt = require('bcryptjs');
+const { randomBytes } = require('node:crypto');
+
+function conflictoResolucion() {
+  const error = new Error('La solicitud ya fue atendida. Actualiza la bandeja antes de continuar.');
+  error.statusCode = 409;
+  return error;
+}
 
 /**
  * PasswordRecoveryService
@@ -24,26 +31,11 @@ class PasswordRecoveryService {
   }
 
   /**
-   * Genera una contraseña aleatoria provisional segura
-   * Longitud 10 caracteres con mayúscula, minúscula, número y símbolo
+   * Genera 128 bits aleatorios y los representa como 22 caracteres ASCII base64url.
+   * No impone grupos de caracteres; la entropía procede de node:crypto.
    */
   generarPasswordTemporal() {
-    const charsMayus = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const charsMinus = 'abcdefghijkmnpqrstuvwxyz';
-    const charsNums = '23456789';
-    const charsSimbolos = '!@#$%&*';
-
-    let pass = '';
-    pass += charsMayus.charAt(Math.floor(Math.random() * charsMayus.length));
-    pass += charsMinus.charAt(Math.floor(Math.random() * charsMinus.length));
-    pass += charsNums.charAt(Math.floor(Math.random() * charsNums.length));
-    pass += charsSimbolos.charAt(Math.floor(Math.random() * charsSimbolos.length));
-
-    const todos = charsMayus + charsMinus + charsNums + charsSimbolos;
-    for (let i = 0; i < 6; i++) {
-      pass += todos.charAt(Math.floor(Math.random() * todos.length));
-    }
-    return pass;
+    return randomBytes(16).toString('base64url');
   }
 
   /**
@@ -62,15 +54,11 @@ class PasswordRecoveryService {
 
     // Solo se permite la solicitud asistida a roles de personal (Trabajador 2 y Admin 3)
     if (usuario && (usuario.idRol === 2 || usuario.idRol === 3) && usuario.activo !== 0 && usuario.activo !== false) {
-      // Verificar si ya existe solicitud pendiente
-      const existentes = await this.solicitudPasswordRepository.listarSolicitudes('PENDIENTE');
-      const yaExiste = existentes.some(s => s.idUsuario === usuario.idUsuario);
-      if (!yaExiste) {
-        await this.solicitudPasswordRepository.crearSolicitud({
-          idUsuario: usuario.idUsuario,
-          email: emailNormalizado
-        });
-      }
+      // La persistencia obtiene o crea la pendiente de forma atómica; una lectura previa no basta.
+      await this.solicitudPasswordRepository.crearSolicitud({
+        idUsuario: usuario.idUsuario,
+        email: emailNormalizado
+      });
     }
 
     // Respuesta genérica de seguridad
@@ -110,11 +98,12 @@ class PasswordRecoveryService {
     }
 
     const solicitud = await this.solicitudPasswordRepository.buscarPorId(idSolNum);
-    if (!solicitud || solicitud.estado !== 'PENDIENTE') {
-      const error = new Error('La solicitud no existe o ya ha sido resuelta.');
+    if (!solicitud) {
+      const error = new Error('La solicitud no existe.');
       error.statusCode = 404;
       throw error;
     }
+    if (solicitud.estado !== 'PENDIENTE') throw conflictoResolucion();
 
     // Usar la contraseña temporal enviada o generar una automática segura
     const passTemporal = (passwordProvisional && passwordProvisional.trim().length >= 8)
@@ -126,12 +115,14 @@ class PasswordRecoveryService {
 
     const idSuperadmin = superadminAutenticado.idUsuario || superadminAutenticado.IdUsuario;
 
-    await this.solicitudPasswordRepository.resolverSolicitud(idSolNum, {
+    const resolucion = await this.solicitudPasswordRepository.resolverSolicitud(idSolNum, {
+      idUsuario: solicitud.idUsuario,
       estado: 'APROBADA',
       idSuperadmin,
       nuevoPasswordHash: passwordHash,
       notas: notas || 'Aprobada por Superadministrador municipal'
     });
+    if (!resolucion) throw conflictoResolucion();
 
     return {
       idSolicitud: idSolNum,
@@ -166,19 +157,22 @@ class PasswordRecoveryService {
     }
 
     const solicitud = await this.solicitudPasswordRepository.buscarPorId(idSolNum);
-    if (!solicitud || solicitud.estado !== 'PENDIENTE') {
-      const error = new Error('La solicitud no existe o ya ha sido resuelta.');
+    if (!solicitud) {
+      const error = new Error('La solicitud no existe.');
       error.statusCode = 404;
       throw error;
     }
+    if (solicitud.estado !== 'PENDIENTE') throw conflictoResolucion();
 
     const idSuperadmin = superadminAutenticado.idUsuario || superadminAutenticado.IdUsuario;
 
-    const res = await this.solicitudPasswordRepository.resolverSolicitud(idSolNum, {
+    const resolucion = await this.solicitudPasswordRepository.resolverSolicitud(idSolNum, {
+      idUsuario: solicitud.idUsuario,
       estado: 'RECHAZADA',
       idSuperadmin,
       notas: motivo.trim()
     });
+    if (!resolucion) throw conflictoResolucion();
 
     return {
       idSolicitud: idSolNum,

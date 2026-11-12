@@ -60,7 +60,7 @@ class MockIncidenciaRepository extends IIncidenciaRepository {
     };
   }
 
-  async listarIncidencias({ idDepartamento, idEstado, idTrabajadorAsignado } = {}) {
+  async listarIncidencias({ idUsuario, idDepartamento, idEstado, idTrabajadorAsignado } = {}) {
     return this.incidencias
       .filter(i => {
         // En mock, asociamos categorías 1 y 2 a Depto 1 (JAPAM), y 3 y 4 a Depto 2 (Servicios Públicos)
@@ -74,8 +74,11 @@ class MockIncidenciaRepository extends IIncidenciaRepository {
         const cumpleTrabajador = idTrabajadorAsignado !== undefined && idTrabajadorAsignado !== null 
           ? i.idTrabajadorAsignado === Number(idTrabajadorAsignado) 
           : true;
+        const cumpleCiudadano = idUsuario !== undefined && idUsuario !== null
+          ? i.idUsuario === Number(idUsuario)
+          : true;
 
-        return cumpleDepto && cumpleEstado && cumpleTrabajador;
+        return cumpleDepto && cumpleEstado && cumpleTrabajador && cumpleCiudadano;
       })
       .map(i => {
         const evs = this.evidencias.filter(e => e.idIncidencia === i.idIncidencia);

@@ -7,7 +7,8 @@
  */
 class ISolicitudPasswordRepository {
   /**
-   * Crea una nueva solicitud en estado PENDIENTE
+   * Obtiene o crea atómicamente la única solicitud PENDIENTE de un usuario.
+   * Si ya existe una pendiente, la devuelve sin modificarla ni consumir otro ID.
    * @param {Object} datos
    * @param {number} datos.idUsuario
    * @param {string} datos.email
@@ -36,14 +37,17 @@ class ISolicitudPasswordRepository {
   }
 
   /**
-   * Resuelve una solicitud (Aprobada con nuevo hash o Rechazada)
+   * Resuelve únicamente una solicitud PENDIENTE (Aprobada con nuevo hash o Rechazada).
+   * La transición y, al aprobar, el cambio de hash deben ser atómicos.
+   * Mantiene el orden de bloqueo usuario -> solicitud para coordinarse con crearSolicitud.
    * @param {number} idSolicitud
    * @param {Object} resolucion
+   * @param {number} resolucion.idUsuario - Usuario leído de la solicitud; no procede del cliente.
    * @param {string} resolucion.estado - 'APROBADA' | 'RECHAZADA'
    * @param {number} resolucion.idSuperadmin
    * @param {string} [resolucion.nuevoPasswordHash]
    * @param {string} [resolucion.notas]
-   * @returns {Promise<Object>}
+   * @returns {Promise<Object|null>} null si no existe o ya fue resuelta; no modifica datos.
    */
   async resolverSolicitud(idSolicitud, resolucion) {
     throw new Error('Método no implementado');

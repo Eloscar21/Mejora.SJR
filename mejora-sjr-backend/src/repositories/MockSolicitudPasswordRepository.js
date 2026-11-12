@@ -15,6 +15,10 @@ class MockSolicitudPasswordRepository extends ISolicitudPasswordRepository {
   }
 
   async crearSolicitud({ idUsuario, email }) {
+    // Sin await entre buscar y crear: las llamadas concurrentes reutilizan la pendiente.
+    const existente = this.solicitudes.find(s => s.idUsuario === Number(idUsuario) && s.estado === 'PENDIENTE');
+    if (existente) return { ...existente };
+
     const nueva = {
       idSolicitud: this.nextId++,
       idUsuario: Number(idUsuario),
@@ -67,23 +71,23 @@ class MockSolicitudPasswordRepository extends ISolicitudPasswordRepository {
     return { ...s };
   }
 
-  async resolverSolicitud(idSolicitud, { estado, idSuperadmin, nuevoPasswordHash, notas }) {
+  async resolverSolicitud(idSolicitud, { idUsuario, estado, idSuperadmin, nuevoPasswordHash, notas }) {
     const s = this.solicitudes.find(item => item.idSolicitud === Number(idSolicitud));
-    if (!s) throw new Error('Solicitud no encontrada.');
+    if (!s || s.estado !== 'PENDIENTE' || s.idUsuario !== Number(idUsuario)) return null;
 
-    s.estado = estado.toUpperCase();
-    s.fechaResolucion = new Date();
-    s.idSuperadminResolutor = Number(idSuperadmin);
-    s.notasResolucion = notas ? notas.trim() : null;
-
-    if (estado === 'APROBADA' && nuevoPasswordHash && this.usuarioRepository) {
-      if (Array.isArray(this.usuarioRepository.usuarios)) {
-        const user = this.usuarioRepository.usuarios.find(u => u.idUsuario === s.idUsuario);
-        if (user) {
-          user.passwordHash = nuevoPasswordHash;
-        }
-      }
+    // Preparar los valores antes de escribir. No hay await entre comprobar y resolver.
+    const resolucion = {
+      estado: estado.toUpperCase(),
+      fechaResolucion: new Date(),
+      idSuperadminResolutor: Number(idSuperadmin),
+      notasResolucion: notas ? notas.trim() : null,
+    };
+    if (estado === 'APROBADA' && nuevoPasswordHash) {
+      const user = this.usuarioRepository?.usuarios?.find(u => u.idUsuario === s.idUsuario);
+      if (!user) throw new Error('No se pudo actualizar la contraseña del solicitante.');
+      user.passwordHash = nuevoPasswordHash;
     }
+    Object.assign(s, resolucion);
 
     return { ...s };
   }

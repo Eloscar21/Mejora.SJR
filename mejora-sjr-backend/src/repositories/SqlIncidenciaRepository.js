@@ -139,7 +139,7 @@ class SqlIncidenciaRepository extends IIncidenciaRepository {
   /**
    * Listar incidencias con soporte para RBAC departamental y filtros opcionales (US-025)
    */
-  async listarIncidencias({ idDepartamento, idEstado, idTrabajadorAsignado } = {}) {
+  async listarIncidencias({ idUsuario, idDepartamento, idEstado, idTrabajadorAsignado } = {}) {
     const request = this.pool.request();
     let query = `
       SELECT 
@@ -164,6 +164,11 @@ class SqlIncidenciaRepository extends IIncidenciaRepository {
       FROM vw_IncidenciasDetalle
       WHERE 1 = 1
     `;
+
+    if (idUsuario !== undefined && idUsuario !== null) {
+      request.input('IdUsuario', sql.Int, Number(idUsuario));
+      query += ` AND IdCiudadano = @IdUsuario`;
+    }
 
     if (idDepartamento !== undefined && idDepartamento !== null) {
       request.input('IdDepartamento', sql.Int, Number(idDepartamento));

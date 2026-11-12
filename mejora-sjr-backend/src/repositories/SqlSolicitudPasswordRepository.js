@@ -21,23 +21,55 @@ class SqlSolicitudPasswordRepository extends ISolicitudPasswordRepository {
   }
 
   async crearSolicitud({ idUsuario, email }) {
-    const request = this.pool.request();
-    request.input('IdUsuario', sql.Int, Number(idUsuario));
-    request.input('Email', sql.VarChar(150), email.trim().toLowerCase());
+    const id = Number(idUsuario);
+    const emailNormalizado = email.trim().toLowerCase();
+    const transaction = new sql.Transaction(this.pool);
+    await transaction.begin();
 
-    const query = `
-      INSERT INTO SolicitudesPassword (IdUsuario, Email, Estado, FechaSolicitud)
-      OUTPUT 
-        INSERTED.IdSolicitud AS idSolicitud,
-        INSERTED.IdUsuario AS idUsuario,
-        INSERTED.Email AS email,
-        INSERTED.Estado AS estado,
-        INSERTED.FechaSolicitud AS fechaSolicitud
-      VALUES (@IdUsuario, @Email, 'PENDIENTE', GETDATE());
-    `;
+    try {
+      // Serializar por la fila padre, que existe incluso si no hay ninguna solicitud hija.
+      const usuarioRequest = new sql.Request(transaction);
+      usuarioRequest.input('IdUsuario', sql.Int, id);
+      const usuario = await usuarioRequest.query(`
+        SELECT IdUsuario FROM Usuarios WITH (UPDLOCK, HOLDLOCK)
+        WHERE IdUsuario = @IdUsuario;
+      `);
+      if (!usuario.recordset[0]) throw new Error('El usuario solicitante no existe.');
 
-    const result = await request.query(query);
-    return result.recordset[0];
+      const pendienteRequest = new sql.Request(transaction);
+      pendienteRequest.input('IdUsuario', sql.Int, id);
+      const pendiente = await pendienteRequest.query(`
+        SELECT TOP 1 IdSolicitud AS idSolicitud, IdUsuario AS idUsuario,
+          Email AS email, Estado AS estado, FechaSolicitud AS fechaSolicitud
+        FROM SolicitudesPassword
+        WHERE IdUsuario = @IdUsuario AND Estado = 'PENDIENTE'
+        ORDER BY IdSolicitud;
+      `);
+
+      let solicitud = pendiente.recordset[0];
+      if (!solicitud) {
+        const request = new sql.Request(transaction);
+        request.input('IdUsuario', sql.Int, id);
+        request.input('Email', sql.VarChar(150), emailNormalizado);
+        const result = await request.query(`
+          INSERT INTO SolicitudesPassword (IdUsuario, Email, Estado, FechaSolicitud)
+          OUTPUT
+            INSERTED.IdSolicitud AS idSolicitud,
+            INSERTED.IdUsuario AS idUsuario,
+            INSERTED.Email AS email,
+            INSERTED.Estado AS estado,
+            INSERTED.FechaSolicitud AS fechaSolicitud
+          VALUES (@IdUsuario, @Email, 'PENDIENTE', GETDATE());
+        `);
+        solicitud = result.recordset[0];
+      }
+
+      await transaction.commit();
+      return solicitud;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   async listarSolicitudes(estado) {
@@ -107,35 +139,25 @@ class SqlSolicitudPasswordRepository extends ISolicitudPasswordRepository {
     return result.recordset[0] || null;
   }
 
-  async resolverSolicitud(idSolicitud, { estado, idSuperadmin, nuevoPasswordHash, notas }) {
+  async resolverSolicitud(idSolicitud, { idUsuario, estado, idSuperadmin, nuevoPasswordHash, notas }) {
     const transaction = new sql.Transaction(this.pool);
     await transaction.begin();
 
     try {
-      // 1. Obtener solicitud para saber qué usuario afectará
-      const reqBuscar = new sql.Request(transaction);
-      reqBuscar.input('IdSolicitud', sql.Int, Number(idSolicitud));
-      const resSolicitud = await reqBuscar.query(`SELECT IdUsuario FROM SolicitudesPassword WHERE IdSolicitud = @IdSolicitud`);
-      if (!resSolicitud.recordset[0]) {
-        throw new Error('Solicitud no encontrada.');
-      }
-      const idUsuario = resSolicitud.recordset[0].IdUsuario;
+      // Mismo orden de bloqueo que crearSolicitud: usuario -> solicitud.
+      const usuarioRequest = new sql.Request(transaction);
+      usuarioRequest.input('IdUsuario', sql.Int, Number(idUsuario));
+      const usuario = await usuarioRequest.query(`
+        SELECT IdUsuario FROM Usuarios WITH (UPDLOCK, HOLDLOCK)
+        WHERE IdUsuario = @IdUsuario;
+      `);
+      if (!usuario.recordset[0]) throw new Error('El usuario solicitante no existe.');
 
-      // 2. Si es APROBADA y viene nuevoPasswordHash, actualizar contraseña del usuario
-      if (estado === 'APROBADA' && nuevoPasswordHash) {
-        const reqUsuario = new sql.Request(transaction);
-        reqUsuario.input('IdUsuario', sql.Int, idUsuario);
-        reqUsuario.input('PasswordHash', sql.VarChar(255), nuevoPasswordHash);
-        await reqUsuario.query(`
-          UPDATE Usuarios 
-          SET PasswordHash = @PasswordHash
-          WHERE IdUsuario = @IdUsuario;
-        `);
-      }
-
-      // 3. Actualizar estado de la solicitud
+      // 1. Reclamar la solicitud mediante una transición condicional, no con SELECT + UPDATE.
+      // La escritura mantiene el bloqueo hasta el commit/rollback de esta transacción.
       const reqUpdate = new sql.Request(transaction);
       reqUpdate.input('IdSolicitud', sql.Int, Number(idSolicitud));
+      reqUpdate.input('IdUsuario', sql.Int, Number(idUsuario));
       reqUpdate.input('Estado', sql.VarChar(20), estado.toUpperCase());
       reqUpdate.input('IdSuperadmin', sql.Int, Number(idSuperadmin));
       reqUpdate.input('Notas', sql.VarChar(255), notas ? notas.trim() : null);
@@ -156,12 +178,30 @@ class SqlSolicitudPasswordRepository extends ISolicitudPasswordRepository {
           INSERTED.FechaResolucion AS fechaResolucion,
           INSERTED.IdSuperadminResolutor AS idSuperadminResolutor,
           INSERTED.NotasResolucion AS notasResolucion
-        WHERE IdSolicitud = @IdSolicitud;
+        WHERE IdSolicitud = @IdSolicitud AND IdUsuario = @IdUsuario AND Estado = 'PENDIENTE';
       `;
 
       const result = await reqUpdate.query(queryUpdate);
+      const solicitud = result.recordset[0] || null;
+
+      // 2. Solo quien obtuvo la transición puede cambiar la clave del solicitante.
+      if (solicitud && estado === 'APROBADA' && nuevoPasswordHash) {
+        const reqUsuario = new sql.Request(transaction);
+        reqUsuario.input('IdUsuario', sql.Int, solicitud.idUsuario);
+        reqUsuario.input('PasswordHash', sql.VarChar(255), nuevoPasswordHash);
+        const usuarioActualizado = await reqUsuario.query(`
+          UPDATE Usuarios
+          SET PasswordHash = @PasswordHash
+          WHERE IdUsuario = @IdUsuario;
+        `);
+        if (usuarioActualizado.rowsAffected[0] !== 1) {
+          throw new Error('No se pudo actualizar la contraseña del solicitante.');
+        }
+      }
+
+      // Sin fila reclamada no hubo cambios; al aprobar, ambas escrituras se confirman juntas.
       await transaction.commit();
-      return result.recordset[0];
+      return solicitud;
     } catch (err) {
       await transaction.rollback();
       throw err;

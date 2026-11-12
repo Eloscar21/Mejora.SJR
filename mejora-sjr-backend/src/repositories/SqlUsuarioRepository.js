@@ -4,6 +4,7 @@
 const sql = require('mssql');
 const IUsuarioRepository = require('./IUsuarioRepository');
 
+/** @implements {import('./IUsuarioPasswordRepository')} */
 class SqlUsuarioRepository extends IUsuarioRepository {
   /**
    * @param {import('mssql').ConnectionPool} pool - Pool de conexiones inyectado (DIP)
@@ -82,6 +83,32 @@ class SqlUsuarioRepository extends IUsuarioRepository {
 
     const result = await request.query(query);
     return result.recordset[0] || null;
+  }
+
+  async obtenerCredencialesPorId(idUsuario) {
+    const request = this.pool.request();
+    request.input('IdUsuario', sql.Int, idUsuario);
+    const result = await request.query(`
+      SELECT IdUsuario AS idUsuario, IdRol AS idRol, Activo AS activo,
+        PasswordHash AS passwordHash
+      FROM Usuarios WHERE IdUsuario = @IdUsuario;
+    `);
+    return result.recordset[0] || null;
+  }
+
+  async cambiarPasswordSiCoincide({ idUsuario, idRol, passwordHashAnterior, nuevoPasswordHash }) {
+    const request = this.pool.request();
+    request.input('IdUsuario', sql.Int, idUsuario);
+    request.input('IdRol', sql.Int, idRol);
+    request.input('PasswordHashAnterior', sql.VarChar(255), passwordHashAnterior);
+    request.input('NuevoPasswordHash', sql.VarChar(255), nuevoPasswordHash);
+    const result = await request.query(`
+      UPDATE Usuarios SET PasswordHash = @NuevoPasswordHash
+      WHERE IdUsuario = @IdUsuario AND Activo = 1 AND IdRol = @IdRol
+        AND IdRol IN (3, 4)
+        AND PasswordHash COLLATE Latin1_General_100_BIN2 = @PasswordHashAnterior;
+    `);
+    return result.rowsAffected[0] === 1;
   }
 
   async listarEmpleadosActivos({ roles = [2, 3], idDepartamento, soloActivos = false } = {}) {

@@ -31,8 +31,9 @@ class IIncidenciaRepository {
   }
 
   /**
-   * Lista incidencias aplicando filtros opcionales de departamento, estado o trabajador (US-025)
+   * Lista incidencias aplicando filtros opcionales de ciudadano, departamento, estado o trabajador.
    * @param {Object} [filtros]
+   * @param {number} [filtros.idUsuario] Ciudadano propietario; el servicio obtiene este ID del JWT en US-024.
    * @param {number} [filtros.idDepartamento]
    * @param {number} [filtros.idEstado]
    * @param {number} [filtros.idTrabajadorAsignado]
