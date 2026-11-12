@@ -25,8 +25,10 @@ import {
   Info,
   CheckCircle2,
   XCircle,
-  HelpCircle
+  HelpCircle,
+  KeyRound
 } from 'lucide-react';
+import { SolicitarRecuperacionModal } from './SolicitarRecuperacionModal';
 
 export const LoginView: React.FC<{
   viewModel: ReturnType<typeof useLoginViewModel>;
@@ -45,6 +47,7 @@ export const LoginView: React.FC<{
   } = viewModel;
 
   const [showPassword, setShowPassword] = useState(false);
+  const [modalRecuperacionAbierto, setModalRecuperacionAbierto] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
@@ -183,9 +186,18 @@ export const LoginView: React.FC<{
 
             {/* Input Contraseña */}
             <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-xs font-medium text-slate-700">
-                Contraseña
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="block text-xs font-medium text-slate-700">
+                  Contraseña
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setModalRecuperacionAbierto(true)}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors focus:outline-none"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="h-4 w-4" />
@@ -303,6 +315,13 @@ export const LoginView: React.FC<{
           </div>
         </div>
       </div>
+
+      {/* Modal para solicitar restablecimiento asistido al Superadmin */}
+      <SolicitarRecuperacionModal
+        isOpen={modalRecuperacionAbierto}
+        onClose={() => setModalRecuperacionAbierto(false)}
+        emailInicial={email}
+      />
     </div>
   );
 };
