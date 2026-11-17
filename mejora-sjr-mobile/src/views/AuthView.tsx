@@ -10,7 +10,7 @@
  * - Incluye panel de pruebas rápidas con las 4 cuentas semilla del backend.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -25,9 +25,11 @@ import { useAuthViewModel } from '../viewModels/useAuthViewModel';
 import { CustomInput } from '../components/CustomInput';
 import { CustomButton } from '../components/CustomButton';
 import { QuickCredentialsDrawer } from '../components/QuickCredentialsDrawer';
+import { SolicitarRecuperacionModal } from '../components/SolicitarRecuperacionModal';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
 
 export const AuthView: React.FC = () => {
+  const [modalRecuperacionVisible, setModalRecuperacionVisible] = useState(false);
   const {
     authMode,
     nombre,
@@ -158,6 +160,16 @@ export const AuthView: React.FC = () => {
               errorMessage={errors.password}
             />
 
+            {authMode === 'login' && (
+              <TouchableOpacity
+                onPress={() => setModalRecuperacionVisible(true)}
+                style={styles.forgotPasswordButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+            )}
+
             {authMode === 'registro' && (
               <CustomInput
                 label="Confirmar Contraseña"
@@ -192,6 +204,13 @@ export const AuthView: React.FC = () => {
           <QuickCredentialsDrawer onSelectAccount={setQuickEmail} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal de Solicitud de Recuperación Asistida (US-028/US-029) */}
+      <SolicitarRecuperacionModal
+        visible={modalRecuperacionVisible}
+        onClose={() => setModalRecuperacionVisible(false)}
+        initialEmail={email}
+      />
     </SafeAreaView>
   );
 };
@@ -322,6 +341,17 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: SPACING.xs,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    marginBottom: SPACING.md,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    color: COLORS.primaryLight,
+    fontWeight: '600',
   },
   registroNota: {
     fontSize: 11,
