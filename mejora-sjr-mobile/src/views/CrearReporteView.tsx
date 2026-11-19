@@ -34,16 +34,20 @@ function ReportSection({ number, title, description, children }: ReportSectionPr
   );
 }
 
-interface CrearReporteViewProps { viewModel: ReturnType<typeof useReportesCiudadanoViewModel>['formulario'] }
+interface CrearReporteViewProps {
+  viewModel: ReturnType<typeof useReportesCiudadanoViewModel>['formulario'] & {
+    verMisDatos?: () => void;
+  };
+}
 
-/** Presentación de US-024: envío real con ubicación e imagen de ejemplo explícitas. */
+/** Presentación de US-024 / US-032: envío real con ubicación, imagen de ejemplo y acceso a "Mis Datos". */
 export const CrearReporteView: React.FC<CrearReporteViewProps> = ({ viewModel }) => {
   const {
     session, departamentosItems, categoriasItems, isLoadingCatalogos, errorCatalogos, catalogosDisponibles,
     selectedDepartamento, selectedCategoria, descripcion, referenciaUbicacion,
     coordenadas, fotoEvidencia, fotoIntento, estadoFoto, errors, isSubmitting, reporteCreado, cargarCatalogos,
     formularioBloqueado, puedeEnviar, puedeAdjuntarFoto,
-    verMisReportes, mensajeComprobacion,
+    verMisReportes, verMisDatos, mensajeComprobacion,
     handleDepartamentoChange, handleCategoriaChange, handleDescripcionChange,
     handleAdjuntarFoto, handleEliminarFoto, handleFotoCargada, handleFotoError, handleReintentarFoto,
     handleSubmitReporte, cerrarModalExito, cerrarSesion,
@@ -62,6 +66,9 @@ export const CrearReporteView: React.FC<CrearReporteViewProps> = ({ viewModel })
               </View>
             </View>
             <CustomButton title="Mis reportes" variant="outline" onPress={verMisReportes} disabled={isSubmitting} />
+            {verMisDatos && (
+              <CustomButton title="Mis datos" variant="outline" onPress={verMisDatos} disabled={isSubmitting} />
+            )}
             <TouchableOpacity
               accessibilityRole="button" accessibilityLabel="Cerrar sesión"
               style={styles.logoutButton} onPress={cerrarSesion} activeOpacity={0.7}

@@ -147,6 +147,27 @@ class MockUsuarioRepository extends IUsuarioRepository {
     usuario.activo = 0;
     return true;
   }
+
+  async actualizarPerfilUsuario(idUsuario, { nombre, email, passwordHash }) {
+    const usuario = this.usuarios.find(u => u.idUsuario === Number(idUsuario));
+    if (!usuario || (usuario.activo !== 1 && usuario.activo !== true)) return null;
+
+    if (nombre !== undefined) {
+      usuario.nombre = nombre.trim();
+    }
+    if (email !== undefined) {
+      usuario.email = email.trim().toLowerCase();
+    }
+    if (passwordHash) {
+      usuario.passwordHash = passwordHash;
+    }
+
+    const { passwordHash: _, ...safeUser } = usuario;
+    return {
+      ...safeUser,
+      activo: safeUser.activo === 1 || safeUser.activo === true,
+    };
+  }
 }
 
 module.exports = MockUsuarioRepository;

@@ -30,6 +30,7 @@ interface AuthContextType {
   storageService: IStorageService;
   finalizarRestauracion: () => void;
   establecerSesion: (token: string, session: UsuarioSession) => Promise<void>;
+  actualizarSesionUsuario: (nuevaSesion: UsuarioSession) => void;
   roleWarning: string | null;
   setRoleWarning: (message: string | null) => void;
   cerrarSesion: () => Promise<void>;
@@ -143,6 +144,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   const finalizarRestauracion = useCallback(() => setIsRestoringSession(false), []);
 
+  const actualizarSesionUsuario = useCallback((nuevaSesion: UsuarioSession) => {
+    setSession((prev) => (prev ? { ...prev, ...nuevaSesion } : nuevaSesion));
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -157,6 +162,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         storageService,
         finalizarRestauracion,
         establecerSesion,
+        actualizarSesionUsuario,
         roleWarning,
         setRoleWarning,
         cerrarSesion,

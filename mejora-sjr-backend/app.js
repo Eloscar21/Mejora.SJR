@@ -7,6 +7,7 @@ const createCatalogoRouter = require('./src/routes/catalogoRoutes');
 const createEmpleadoRouter = require('./src/routes/empleadoRoutes');
 const createIncidenciaRouter = require('./src/routes/incidenciaRoutes');
 const createPasswordRecoveryRouter = require('./src/routes/passwordRecoveryRoutes');
+const createPerfilRouter = require('./src/routes/perfilRoutes');
 const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
 const MockSolicitudPasswordRepository = require('./src/repositories/MockSolicitudPasswordRepository');
 const errorHandler = require('./src/middlewares/errorHandler');
@@ -61,6 +62,9 @@ const createApp = ({
 
   const resolvedIncidenciaRepo = incidenciaRepository || new MockIncidenciaRepository();
   app.use('/api/incidencias', createIncidenciaRouter(resolvedIncidenciaRepo, catalogoRepository, usuarioRepository, jwtSecret));
+
+  // US-032: Apartado "Mis Datos" / Perfil Ciudadano
+  app.use('/api/perfil', createPerfilRouter(usuarioRepository, resolvedIncidenciaRepo, jwtSecret));
 
   const resolvedSolicitudPasswordRepo = solicitudPasswordRepository || new MockSolicitudPasswordRepository(usuarioRepository);
   app.use('/api/solicitudes-password', createPasswordRecoveryRouter(resolvedSolicitudPasswordRepo, usuarioRepository, jwtSecret));

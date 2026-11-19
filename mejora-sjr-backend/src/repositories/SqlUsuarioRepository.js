@@ -201,6 +201,44 @@ class SqlUsuarioRepository extends IUsuarioRepository {
     const result = await request.query(query);
     return result.rowsAffected[0] > 0;
   }
+
+  async actualizarPerfilUsuario(idUsuario, { nombre, email, passwordHash }) {
+    const request = this.pool.request();
+    request.input('IdUsuario', sql.Int, Number(idUsuario));
+    request.input('Nombre', sql.VarChar(150), nombre.trim());
+    request.input('Email', sql.VarChar(150), email.trim().toLowerCase());
+
+    let setPasswordClause = '';
+    if (passwordHash) {
+      request.input('PasswordHash', sql.VarChar(255), passwordHash);
+      setPasswordClause = ', PasswordHash = @PasswordHash';
+    }
+
+    const query = `
+      UPDATE Usuarios
+      SET
+        Nombre = @Nombre,
+        Email = @Email
+        ${setPasswordClause}
+      OUTPUT
+        INSERTED.IdUsuario AS idUsuario,
+        INSERTED.Nombre AS nombre,
+        INSERTED.Email AS email,
+        INSERTED.IdRol AS idRol,
+        INSERTED.IdDepartamento AS idDepartamento,
+        INSERTED.Activo AS activo
+      WHERE IdUsuario = @IdUsuario AND Activo = 1
+    `;
+
+    const result = await request.query(query);
+    const record = result.recordset[0];
+    if (!record) return null;
+
+    return {
+      ...record,
+      activo: record.activo === 1 || record.activo === true,
+    };
+  }
 }
 
 module.exports = SqlUsuarioRepository;

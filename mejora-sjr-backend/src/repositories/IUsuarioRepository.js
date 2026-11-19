@@ -56,6 +56,18 @@ class IUsuarioRepository {
   async desactivarEmpleado(idUsuario) {
     throw new Error('Método no implementado');
   }
+
+  /**
+   * Actualiza los datos de perfil del usuario autenticado (US-032: Apartado "Mis Datos")
+   * @param {number} idUsuario
+   * @param {Object} datos
+   * @param {string} datos.nombre
+   * @param {string} [datos.email]
+   * @param {string} [datos.passwordHash]
+   */
+  async actualizarPerfilUsuario(idUsuario, datos) {
+    throw new Error('Método no implementado');
+  }
 }
 
 module.exports = IUsuarioRepository;
