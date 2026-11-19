@@ -82,8 +82,34 @@ const requireSuperadmin = (jwtSecret = process.env.JWT_SECRET) => {
   };
 };
 
+/**
+ * Middleware para validar autenticación opcional: si se envía Bearer token lo decodifica,
+ * de lo contrario continúa la ejecución sin bloquear la petición pública (US-030).
+ * @param {string} [jwtSecret]
+ */
+const authenticateOptionalToken = (jwtSecret = process.env.JWT_SECRET) => {
+  return (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(token, jwtSecret);
+      req.user = decoded;
+      req.usuario = decoded;
+    } catch {
+      // Si el token es inválido, continúa sin inyectar usuario en rutas públicas
+    }
+    next();
+  };
+};
+
 module.exports = {
   authenticateToken,
+  authenticateOptionalToken,
   authorizeRoles,
   authorizeSuperadmin,
   requireSuperadmin

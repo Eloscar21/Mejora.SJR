@@ -86,13 +86,19 @@ export function useCatalogosViewModel(
           return;
         }
 
-        setIdRolActor(payload.idRol);
-        setIdDepartamentoActor(
+        const deptoActor =
           payload.idDepartamento !== undefined && payload.idDepartamento !== null
             ? Number(payload.idDepartamento)
-            : null
-        );
+            : null;
+
+        setIdRolActor(payload.idRol);
+        setIdDepartamentoActor(deptoActor);
         setErrorAcceso(null);
+
+        // Aislamiento Departamental (US-030): preselecciona el departamento asignado si es Rol 3
+        if (payload.idRol === 3 && deptoActor) {
+          setFiltroDepartamento(deptoActor);
+        }
 
         const [listaDeptos, listaCategorias] = await Promise.all([
           catalogoService.obtenerDepartamentos(),
@@ -126,6 +132,16 @@ export function useCatalogosViewModel(
 
   const puedeConsultar = (idRolActor === 3 || idRolActor === 4) && !errorAcceso;
   const puedeGestionarDepartamentos = idRolActor === 4 && !errorAcceso;
+  const puedeCambiarFiltroDepartamento = idRolActor === 4;
+
+  // Aislamiento Departamental (US-030): Admin Depto (Rol 3) solo visualiza su dependencia
+  const departamentosVisibles = useMemo(() => {
+    if (idRolActor === 3 && idDepartamentoActor) {
+      return departamentos.filter((d) => Number(d.idDepartamento) === Number(idDepartamentoActor));
+    }
+    return departamentos;
+  }, [departamentos, idRolActor, idDepartamentoActor]);
+
   const puedeGestionarCategoria = useCallback(
     (idDepartamento?: number) => {
       if (!puedeConsultar) return false;
@@ -138,10 +154,15 @@ export function useCatalogosViewModel(
     [puedeConsultar, idRolActor, idDepartamentoActor]
   );
 
-  // Categorías filtradas reactivamente
+  // Categorías filtradas reactivamente con aislamiento departamental estricto (US-030)
   const categoriasFiltradas = useMemo(() => {
     return categorias.filter((cat) => {
-      if (
+      // Regla de aislamiento (US-030): Admin de Depto (Rol 3) JAMÁS ve categorías de otra dependencia
+      if (idRolActor === 3 && idDepartamentoActor) {
+        if (Number(cat.idDepartamento) !== Number(idDepartamentoActor)) {
+          return false;
+        }
+      } else if (
         filtroDepartamento !== 'todos' &&
         Number(cat.idDepartamento) !== Number(filtroDepartamento)
       ) {
@@ -164,11 +185,11 @@ export function useCatalogosViewModel(
 
       return true;
     });
-  }, [categorias, filtroDepartamento, filtroEstadoCategoria, filtroTexto]);
+  }, [categorias, idRolActor, idDepartamentoActor, filtroDepartamento, filtroEstadoCategoria, filtroTexto]);
 
   // Métricas reactivas de cabecera
   const metricas: MetricasCatalogos = useMemo(() => {
-    const totalDepartamentos = departamentos.length;
+    const totalDepartamentos = departamentosVisibles.length;
     const totalCategorias = categoriasFiltradas.length;
     const categoriasActivas = categoriasFiltradas.filter((c) => c.activo !== false).length;
     const categoriasJapam = categoriasFiltradas.filter((c) => Number(c.idDepartamento) === 1).length;
@@ -183,7 +204,7 @@ export function useCatalogosViewModel(
       categoriasJapam,
       categoriasServiciosPublicos,
     };
-  }, [departamentos, categoriasFiltradas]);
+  }, [departamentosVisibles, categoriasFiltradas]);
 
   const contarCategoriasPorDepto = useCallback(
     (idDepartamento: number): number => {
@@ -360,11 +381,27 @@ export function useCatalogosViewModel(
     [puedeGestionarCategoria, catalogoService]
   );
 
+  const setFiltroDepartamentoSeguro = useCallback(
+    (nuevoDepto: number | 'todos') => {
+      // US-030: Si es Rol 3, permanece forzado en su dependencia
+      if (idRolActor === 3 && idDepartamentoActor) {
+        setFiltroDepartamento(idDepartamentoActor);
+        return;
+      }
+      setFiltroDepartamento(nuevoDepto);
+    },
+    [idRolActor, idDepartamentoActor]
+  );
+
   const limpiarFiltros = useCallback(() => {
     setFiltroTexto('');
-    setFiltroDepartamento('todos');
+    if (idRolActor === 3 && idDepartamentoActor) {
+      setFiltroDepartamento(idDepartamentoActor);
+    } else {
+      setFiltroDepartamento('todos');
+    }
     setFiltroEstadoCategoria('todos');
-  }, []);
+  }, [idRolActor, idDepartamentoActor]);
 
   const recargar = useCallback(() => {
     if (!puedeConsultar) return;
@@ -382,10 +419,12 @@ export function useCatalogosViewModel(
     idDepartamentoActor,
     puedeConsultar,
     puedeGestionarDepartamentos,
+    puedeCambiarFiltroDepartamento,
     puedeGestionarCategoria,
     errorAcceso,
 
-    departamentos,
+    departamentos: departamentosVisibles,
+    departamentosVisibles,
     categorias: categoriasFiltradas,
     totalCategoriasOriginal: categorias.length,
     isLoading,
@@ -396,7 +435,7 @@ export function useCatalogosViewModel(
     filtroTexto,
     setFiltroTexto,
     filtroDepartamento,
-    setFiltroDepartamento,
+    setFiltroDepartamento: setFiltroDepartamentoSeguro,
     filtroEstadoCategoria,
     setFiltroEstadoCategoria,
     limpiarFiltros,

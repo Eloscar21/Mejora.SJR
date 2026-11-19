@@ -305,3 +305,87 @@ test('SSR de vistas US-026 y US-027 renderiza filtros por secretaría, selector 
   assert.match(htmlCat, /Fugas de agua/);
   assert.match(htmlCat, /Bacheo/);
 });
+
+test('US-030: Aislamiento Departamental en Catálogos - Admin JAPAM solo ve JAPAM', async () => {
+  const session = sessionFor(3, 1); // Admin JAPAM (Rol 3, Depto 1)
+  const service = new MockCatalogoService();
+  const runner = createHookRunner(
+    'src/viewModels/useCatalogosViewModel.ts',
+    'useCatalogosViewModel',
+    () => [session, service]
+  );
+
+  runner.commit();
+  let vm = await runner.settle();
+
+  assert.equal(vm.puedeConsultar, true);
+  assert.equal(vm.puedeGestionarDepartamentos, false);
+  assert.equal(vm.puedeCambiarFiltroDepartamento, false);
+  assert.equal(vm.idRolActor, 3);
+  assert.equal(vm.idDepartamentoActor, 1);
+
+  // Departamentos aislados: solo JAPAM
+  assert.equal(vm.departamentos.length, 1);
+  assert.equal(vm.departamentos[0].idDepartamento, 1);
+  assert.equal(vm.departamentos[0].nombre, 'JAPAM');
+
+  // Categorías aisladas: solo JAPAM (Fugas de agua, Alcantarillado)
+  assert.equal(vm.categorias.length, 2);
+  assert.equal(vm.categorias.every((c) => c.idDepartamento === 1), true);
+
+  // Intentar cambiar filtro a Servicios Públicos (2) o a 'todos' es ignorado por seguridad
+  vm.setFiltroDepartamento(2);
+  vm = runner.commit();
+  assert.equal(vm.categorias.length, 2);
+  assert.equal(vm.categorias.every((c) => c.idDepartamento === 1), true);
+
+  // SSR de CatalogosMunicipalesView para Admin JAPAM
+  const htmlCat = renderToStaticMarkup(
+    React.createElement(CatalogosMunicipalesView, { viewModel: vm })
+  );
+
+  // Verifica que JAPAM y sus categorías aparezcan
+  assert.match(htmlCat, /JAPAM/);
+  assert.match(htmlCat, /Fugas de agua/);
+  assert.match(htmlCat, /Alcantarillado/);
+
+  // Verifica que Servicios Públicos y sus categorías estén completamente ausentes de la vista
+  assert.doesNotMatch(htmlCat, /Servicios Públicos \(Alumbrado/);
+  assert.doesNotMatch(htmlCat, /#CAT-03/);
+  assert.doesNotMatch(htmlCat, /Alumbrado/);
+  assert.doesNotMatch(htmlCat, /#CAT-04/);
+  assert.doesNotMatch(htmlCat, /Bacheo/);
+  assert.doesNotMatch(htmlCat, /Todas las dependencias/);
+});
+
+test('US-030: Aislamiento Departamental en Catálogos - Admin Servicios Públicos solo ve SP', async () => {
+  const session = sessionFor(3, 2); // Admin SP (Rol 3, Depto 2)
+  const service = new MockCatalogoService();
+  const runner = createHookRunner(
+    'src/viewModels/useCatalogosViewModel.ts',
+    'useCatalogosViewModel',
+    () => [session, service]
+  );
+
+  runner.commit();
+  const vm = await runner.settle();
+
+  assert.equal(vm.departamentos.length, 1);
+  assert.equal(vm.departamentos[0].idDepartamento, 2);
+  assert.equal(vm.departamentos[0].nombre, 'Servicios Públicos');
+
+  assert.equal(vm.categorias.length, 2);
+  assert.equal(vm.categorias.every((c) => c.idDepartamento === 2), true);
+
+  const htmlCat = renderToStaticMarkup(
+    React.createElement(CatalogosMunicipalesView, { viewModel: vm })
+  );
+
+  assert.match(htmlCat, /Servicios Públicos/);
+  assert.match(htmlCat, /Alumbrado/);
+  assert.match(htmlCat, /Bacheo/);
+
+  // Categorías de JAPAM no deben renderizarse
+  assert.doesNotMatch(htmlCat, /Fugas de agua/);
+  assert.doesNotMatch(htmlCat, /Alcantarillado/);
+});

@@ -15,7 +15,8 @@ class CatalogoController {
   }
 
   async obtenerDepartamentos(req, res) {
-    const departamentos = await this.catalogoService.listarDepartamentos();
+    const usuarioAutenticado = req.usuario || req.user;
+    const departamentos = await this.catalogoService.listarDepartamentos(usuarioAutenticado);
     return res.status(200).json({
       success: true,
       data: departamentos
@@ -23,8 +24,9 @@ class CatalogoController {
   }
 
   async obtenerCategorias(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
     const { idDepartamento } = req.query;
-    const categorias = await this.catalogoService.listarCategorias(idDepartamento);
+    const categorias = await this.catalogoService.listarCategorias(idDepartamento, usuarioAutenticado);
     return res.status(200).json({
       success: true,
       data: categorias

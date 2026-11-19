@@ -3,6 +3,7 @@
 
 const request = require('supertest');
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const createCatalogoRouter = require('../src/routes/catalogoRoutes');
 const MockCatalogoRepository = require('../src/repositories/MockCatalogoRepository');
 const errorHandler = require('../src/middlewares/errorHandler');
@@ -10,14 +11,19 @@ const errorHandler = require('../src/middlewares/errorHandler');
 describe('US-002: API de Catálogos (Departamentos y Categorías)', () => {
   let app;
   let mockRepo;
+  const JWT_SECRET = 'test_secret_catalogos_123';
 
   beforeEach(() => {
     mockRepo = new MockCatalogoRepository();
     app = express();
     app.use(express.json());
-    app.use('/api/catalogos', createCatalogoRouter(mockRepo));
+    app.use('/api/catalogos', createCatalogoRouter(mockRepo, JWT_SECRET));
     app.use(errorHandler);
   });
+
+  const generateToken = (payload) => {
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+  };
 
   describe('GET /api/catalogos/departamentos', () => {
     it('debe retornar la lista de departamentos oficiales (JAPAM y Servicios Públicos)', async () => {
@@ -81,6 +87,85 @@ describe('US-002: API de Catálogos (Departamentos y Categorías)', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
       expect(res.body.message).toContain('idDepartamento debe ser un número entero válido');
+    });
+  });
+
+  describe('US-030: Aislamiento Departamental en Catálogos (JAPAM vs Servicios Públicos)', () => {
+    it('Admin JAPAM (Rol 3, Depto 1) solo debe recibir la dependencia JAPAM', async () => {
+      const token = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1, email: 'emily@japam.com' });
+      const res = await request(app)
+        .get('/api/catalogos/departamentos')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0]).toEqual({ idDepartamento: 1, nombre: 'JAPAM' });
+    });
+
+    it('Admin JAPAM (Rol 3, Depto 1) solo debe recibir las categorías de JAPAM', async () => {
+      const token = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1, email: 'emily@japam.com' });
+      const res = await request(app)
+        .get('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(2);
+      res.body.data.forEach((cat) => {
+        expect(cat.idDepartamento).toBe(1);
+        expect(cat.departamentoNombre).toBe('JAPAM');
+      });
+    });
+
+    it('Admin JAPAM que intente consultar categorías de Servicios Públicos debe recibir 403 Forbidden', async () => {
+      const token = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1, email: 'emily@japam.com' });
+      const res = await request(app)
+        .get('/api/catalogos/categorias?idDepartamento=2')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('No tienes autorización para consultar o gestionar catálogos de otra dependencia');
+    });
+
+    it('Admin Servicios Públicos (Rol 3, Depto 2) solo debe recibir Servicios Públicos y sus categorías', async () => {
+      const token = generateToken({ idUsuario: 8, idRol: 3, idDepartamento: 2, email: 'admin.sp@sjr.gob.mx' });
+
+      const resDeptos = await request(app)
+        .get('/api/catalogos/departamentos')
+        .set('Authorization', `Bearer ${token}`);
+      expect(resDeptos.status).toBe(200);
+      expect(resDeptos.body.data).toHaveLength(1);
+      expect(resDeptos.body.data[0].idDepartamento).toBe(2);
+
+      const resCats = await request(app)
+        .get('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`);
+      expect(resCats.status).toBe(200);
+      expect(resCats.body.data).toHaveLength(2);
+      resCats.body.data.forEach((c) => expect(c.idDepartamento).toBe(2));
+
+      const resCruzado = await request(app)
+        .get('/api/catalogos/categorias?idDepartamento=1')
+        .set('Authorization', `Bearer ${token}`);
+      expect(resCruzado.status).toBe(403);
+    });
+
+    it('Superadmin (Rol 4) debe tener acceso global a todos los departamentos y categorías', async () => {
+      const token = generateToken({ idUsuario: 1, idRol: 4, email: 'superadmin@sjr.gob.mx' });
+
+      const resDeptos = await request(app)
+        .get('/api/catalogos/departamentos')
+        .set('Authorization', `Bearer ${token}`);
+      expect(resDeptos.status).toBe(200);
+      expect(resDeptos.body.data).toHaveLength(2);
+
+      const resCats = await request(app)
+        .get('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`);
+      expect(resCats.status).toBe(200);
+      expect(resCats.body.data).toHaveLength(4);
     });
   });
 });

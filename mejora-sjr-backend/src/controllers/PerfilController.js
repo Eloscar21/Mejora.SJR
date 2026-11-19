@@ -33,12 +33,7 @@ class PerfilController {
    */
   async actualizar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { nombre, email, passwordActual, passwordNueva, confirmarPassword } = req.body || {};
-
-    const resultado = await this.perfilService.actualizarPerfil(
-      { nombre, email, passwordActual, passwordNueva, confirmarPassword },
-      usuarioAutenticado
-    );
+    const resultado = await this.perfilService.actualizarPerfil(req.body, usuarioAutenticado);
 
     return res.status(200).json({
       success: true,

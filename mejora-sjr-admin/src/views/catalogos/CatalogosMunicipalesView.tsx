@@ -212,11 +212,13 @@ export const CatalogosMunicipalesView: React.FC<CatalogosMunicipalesViewProps> =
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Dependencias Oficiales
+            {vm.puedeCambiarFiltroDepartamento ? 'Dependencias Oficiales' : 'Dependencia Asignada'}
           </span>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-slate-900">
-              {vm.metricas.totalDepartamentos}
+              {vm.puedeCambiarFiltroDepartamento
+                ? vm.metricas.totalDepartamentos
+                : (vm.departamentos[0]?.nombre || 'Área')}
             </span>
             <Building2 className="h-4 w-4 text-blue-600" />
           </div>
@@ -234,29 +236,47 @@ export const CatalogosMunicipalesView: React.FC<CatalogosMunicipalesViewProps> =
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Categorías JAPAM (1)
-          </span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold text-blue-700">
-              {vm.metricas.categoriasJapam}
+        {(vm.puedeCambiarFiltroDepartamento || vm.idDepartamentoActor === 1) && (
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Categorías JAPAM (1)
             </span>
-            <ShieldCheck className="h-4 w-4 text-blue-500" />
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-blue-700">
+                {vm.metricas.categoriasJapam}
+              </span>
+              <ShieldCheck className="h-4 w-4 text-blue-500" />
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Servicios Públicos (2)
-          </span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold text-indigo-700">
-              {vm.metricas.categoriasServiciosPublicos}
+        {(vm.puedeCambiarFiltroDepartamento || vm.idDepartamentoActor === 2) && (
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Servicios Públicos (2)
             </span>
-            <Database className="h-4 w-4 text-indigo-500" />
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-indigo-700">
+                {vm.metricas.categoriasServiciosPublicos}
+              </span>
+              <Database className="h-4 w-4 text-indigo-500" />
+            </div>
           </div>
-        </div>
+        )}
+
+        {!vm.puedeCambiarFiltroDepartamento && (
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Categorías Activas
+            </span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-emerald-700">
+                {vm.metricas.categoriasActivas}
+              </span>
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. Sección de Dependencias / Secretarías Municipales */}
@@ -264,14 +284,24 @@ export const CatalogosMunicipalesView: React.FC<CatalogosMunicipalesViewProps> =
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-blue-600" />
-            <span>Dependencias y Secretarías Municipales</span>
+            <span>
+              {vm.puedeCambiarFiltroDepartamento
+                ? 'Dependencias y Secretarías Municipales'
+                : 'Tu Dependencia Responsable'}
+            </span>
           </h2>
           <span className="text-xs text-slate-400">
-            Haz clic en una dependencia para filtrar sus categorías
+            {vm.puedeCambiarFiltroDepartamento
+              ? 'Haz clic en una dependencia para filtrar sus categorías'
+              : 'Categorías exclusivas bajo tu supervisión'}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          className={`grid gap-4 ${
+            vm.departamentos.length === 1 ? 'grid-cols-1 max-w-2xl' : 'grid-cols-1 md:grid-cols-2'
+          }`}
+        >
           {vm.departamentos.map((depto: Departamento) => {
             const seleccionado = vm.filtroDepartamento === depto.idDepartamento;
             const numCategorias = vm.contarCategoriasPorDepto(depto.idDepartamento);
@@ -380,26 +410,33 @@ export const CatalogosMunicipalesView: React.FC<CatalogosMunicipalesViewProps> =
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-1.5">
-            <Filter className="h-3.5 w-3.5 text-slate-400" />
-            <select
-              id={deptoSelectId}
-              aria-label="Filtrar categorías por dependencia"
-              value={String(vm.filtroDepartamento)}
-              onChange={(e) => {
-                const val = e.target.value;
-                vm.setFiltroDepartamento(val === 'todos' ? 'todos' : Number(val));
-              }}
-              className="text-xs rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="todos">Todas las dependencias</option>
-              {vm.departamentos.map((d) => (
-                <option key={d.idDepartamento} value={d.idDepartamento}>
-                  Depto #{d.idDepartamento} - {d.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          {vm.puedeCambiarFiltroDepartamento ? (
+            <div className="flex items-center space-x-1.5">
+              <Filter className="h-3.5 w-3.5 text-slate-400" />
+              <select
+                id={deptoSelectId}
+                aria-label="Filtrar categorías por dependencia"
+                value={String(vm.filtroDepartamento)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  vm.setFiltroDepartamento(val === 'todos' ? 'todos' : Number(val));
+                }}
+                className="text-xs rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="todos">Todas las dependencias</option>
+                {vm.departamentos.map((d) => (
+                  <option key={d.idDepartamento} value={d.idDepartamento}>
+                    Depto #{d.idDepartamento} - {d.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-800">
+              <Building2 className="h-3.5 w-3.5 text-blue-600" />
+              <span>Dependencia: {vm.departamentos[0]?.nombre || 'Asignada'}</span>
+            </div>
+          )}
 
           <select
             id={estadoSelectId}

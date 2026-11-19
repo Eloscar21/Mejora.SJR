@@ -5,19 +5,27 @@ const express = require('express');
 const MockCatalogoRepository = require('../repositories/MockCatalogoRepository');
 const CatalogoService = require('../services/CatalogoService');
 const CatalogoController = require('../controllers/CatalogoController');
+const { authenticateOptionalToken } = require('../middlewares/authMiddleware');
 
 /**
  * Factory para crear las rutas de catálogos con dependencias inyectadas (DIP / IoC)
+ * Soporta aislamiento departamental (US-030) cuando se proporciona JWT.
  * @param {import('../repositories/ICatalogoRepository')} [catalogoRepository]
+ * @param {string} [jwtSecret]
  */
-const createCatalogoRouter = (catalogoRepository = new MockCatalogoRepository()) => {
+const createCatalogoRouter = (
+  catalogoRepository = new MockCatalogoRepository(),
+  jwtSecret = process.env.JWT_SECRET
+) => {
   const router = express.Router();
 
   const catalogoService = new CatalogoService(catalogoRepository);
   const catalogoController = new CatalogoController(catalogoService);
 
-  router.get('/departamentos', catalogoController.obtenerDepartamentos);
-  router.get('/categorias', catalogoController.obtenerCategorias);
+  const optionalAuth = authenticateOptionalToken(jwtSecret);
+
+  router.get('/departamentos', optionalAuth, catalogoController.obtenerDepartamentos);
+  router.get('/categorias', optionalAuth, catalogoController.obtenerCategorias);
 
   return router;
 };
