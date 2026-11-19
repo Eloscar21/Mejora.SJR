@@ -181,7 +181,7 @@ class SqlUsuarioRepository extends IUsuarioRepository {
         INSERTED.IdRol AS idRol,
         INSERTED.IdDepartamento AS idDepartamento,
         INSERTED.Activo AS activo
-      WHERE IdUsuario = @IdUsuario
+      WHERE IdUsuario = @IdUsuario AND Activo = 1
     `;
 
     const result = await request.query(query);
@@ -200,6 +200,16 @@ class SqlUsuarioRepository extends IUsuarioRepository {
 
     const result = await request.query(query);
     return result.rowsAffected[0] > 0;
+  }
+
+  async reactivarEmpleado(idUsuario) {
+    const request = this.pool.request();
+    request.input('IdUsuario', sql.Int, idUsuario);
+    const resultado = await request.query(`
+      UPDATE Usuarios SET Activo = 1
+      WHERE IdUsuario = @IdUsuario AND IdRol IN (2, 3) AND Activo = 0
+    `);
+    return resultado.rowsAffected[0] === 1;
   }
 
   async actualizarPerfilUsuario(idUsuario, { nombre, email, passwordHash }) {

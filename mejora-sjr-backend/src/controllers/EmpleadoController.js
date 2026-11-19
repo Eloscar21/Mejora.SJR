@@ -14,6 +14,7 @@ class EmpleadoController {
     this.listar = this.listar.bind(this);
     this.actualizar = this.actualizar.bind(this);
     this.desactivar = this.desactivar.bind(this);
+    this.reactivar = this.reactivar.bind(this);
   }
 
   async crear(req, res) {
@@ -62,6 +63,11 @@ class EmpleadoController {
       success: true,
       message: resultado.mensaje
     });
+  }
+
+  async reactivar(req, res) {
+    await this.empleadoService.reactivarEmpleado(req.params.id, req.user);
+    return res.status(200).json({ success: true, message: 'Empleado reactivado.' });
   }
 }
 

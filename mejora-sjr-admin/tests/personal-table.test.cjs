@@ -30,7 +30,7 @@ function loadSource(relativePath, dependencies = {}) {
 }
 
 // Ejecuta el hook real con hooks controlados. No reproduce un montaje React.
-function createHarness(initialSession, initialQuery) {
+function createHarness(initialSession, initialQuery, gestion) {
   const cells = [];
   let cursor = 0;
   let effects = [];
@@ -67,7 +67,7 @@ function createHarness(initialSession, initialQuery) {
     }
   };
   const { usePersonalTableViewModel } = loadSource('src/viewModels/usePersonalTableViewModel.ts', { react: hooks });
-  function render() { cursor = 0; return usePersonalTableViewModel(session, query); }
+  function render() { cursor = 0; return usePersonalTableViewModel(session, query, gestion); }
   function commit() {
     render();
     const pending = effects;
@@ -307,10 +307,48 @@ test('US-022: filtra correctamente por rol y estado booleano activo actualizando
 
 // SSR usa React y la vista reales; solo se aíslan el compositor de formularios y la vista de error ajenos a esta HU.
 const { PersonalDataGrid } = loadSource('src/views/personal/PersonalDataGrid.tsx', {
+  '../../components/ui/Modal': loadSource('src/components/ui/Modal.tsx'),
   '../../providers/PersonalFormularios': { PersonalFormularios: () => React.createElement('div', { 'data-formularios': 'montados' }) },
   '../errors/IntercepcionErrorView': { IntercepcionErrorView: ({ codigo }) => React.createElement('p', null, `Acceso denegado ${codigo}`) }
 });
 const renderView = vm => renderToStaticMarkup(React.createElement(PersonalDataGrid, { viewModel: vm, servicios: {} }));
+
+for (const activo of [true, false]) {
+  test(`US-031: tras 409 muestra el estado confirmado (activo=${activo}) con una sola escritura`, async () => {
+    let lecturas = 0;
+    let escrituras = 0;
+    const pendiente = deferred();
+    const actualizado = { ...inactiveWorker, nombre: 'Luis actualizado', activo };
+    const harness = createHarness(sessionFor(4), {
+      async listarEmpleados() { return [++lecturas === 1 ? inactiveWorker : actualizado]; },
+    }, {
+      async reactivarEmpleado(id) {
+        assert.equal(id, inactiveWorker.idUsuario);
+        escrituras++;
+        await pendiente.promise;
+        throw Object.assign(new Error('Conflicto'), { status: 409 });
+      },
+    });
+    harness.commit();
+    let vm = await harness.settle();
+    assert.match(renderView(vm), /Reactivar a Luis/);
+    vm.abrirReactivar(inactiveWorker);
+    vm = harness.commit();
+    assert.match(renderView(vm), /Confirmar reactivación/);
+    assert.equal(escrituras, 0);
+    const envio = vm.confirmarReactivacion();
+    await vm.confirmarReactivacion();
+    pendiente.resolve();
+    await envio;
+    harness.commit();
+    vm = await harness.settle();
+    assert.equal(escrituras, 1);
+    assert.equal(lecturas, 2);
+    assert.deepEqual(vm.empleados, [actualizado]);
+    assert.equal(vm.accionModal, null);
+    assert.match(vm.feedback.texto, activo ? /ya está activo/ : /figura como inactivo/);
+  });
+}
 
 test('la vista de rol 3 muestra sus datos y filtros sin crear, editar, desactivar ni montar formularios', async () => {
   const harness = createHarness(sessionFor(3), { async listarEmpleados() { return [worker]; } });

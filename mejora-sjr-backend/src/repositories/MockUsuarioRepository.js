@@ -121,8 +121,8 @@ class MockUsuarioRepository extends IUsuarioRepository {
   }
 
   async actualizarEmpleado(idUsuario, { nombre, idRol, idDepartamento }) {
-    const usuarioIndex = this.usuarios.findIndex(u => u.idUsuario === Number(idUsuario));
-    if (usuarioIndex === -1) return null;
+    const target = this.usuarios.find(u => u.idUsuario === Number(idUsuario));
+    if (!target || (target.activo !== true && target.activo !== 1)) return null;
 
     // Validar constraint de departamento
     if ((idRol === 2 || idRol === 3) && !idDepartamento) {
@@ -132,7 +132,6 @@ class MockUsuarioRepository extends IUsuarioRepository {
       throw new Error('Ciudadanos y Superadministradores no deben tener departamento.');
     }
 
-    const target = this.usuarios[usuarioIndex];
     target.nombre = nombre !== undefined ? nombre.trim() : target.nombre;
     target.idRol = idRol !== undefined ? Number(idRol) : target.idRol;
     target.idDepartamento = idDepartamento !== undefined ? (idDepartamento ? Number(idDepartamento) : null) : target.idDepartamento;
@@ -145,6 +144,14 @@ class MockUsuarioRepository extends IUsuarioRepository {
     const usuario = this.usuarios.find(u => u.idUsuario === Number(idUsuario));
     if (!usuario) return false;
     usuario.activo = 0;
+    return true;
+  }
+
+  async reactivarEmpleado(idUsuario) {
+    const usuario = this.usuarios.find(u => u.idUsuario === idUsuario);
+    if (!usuario || ![2, 3].includes(usuario.idRol)) return false;
+    if (usuario.activo !== 0 && usuario.activo !== false) return false;
+    usuario.activo = 1;
     return true;
   }
 

@@ -13,7 +13,7 @@ import { PersonalDataGrid } from '@/views/personal/PersonalDataGrid';
 export default function DashboardPersonalPage() {
   const authService = useMemo(() => new AuthApiService(), []);
   const servicios = useMemo(() => crearPersonalApiServices(authService), [authService]);
-  const viewModel = usePersonalTableViewModel(authService, servicios.consulta);
+  const viewModel = usePersonalTableViewModel(authService, servicios.consulta, servicios.gestion);
 
   return <PersonalDataGrid viewModel={viewModel} servicios={servicios} />;
 }

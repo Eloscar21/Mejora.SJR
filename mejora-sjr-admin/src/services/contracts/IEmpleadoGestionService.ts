@@ -9,4 +9,5 @@ export interface IEmpleadoGestionService {
   crearEmpleado(datos: CrearEmpleadoDTO): Promise<Empleado>;
   actualizarEmpleado(idUsuario: number, datos: ActualizarEmpleadoDTO): Promise<Empleado>;
   desactivarEmpleado(idUsuario: number): Promise<void>;
+  reactivarEmpleado(idUsuario: number): Promise<void>;
 }

@@ -57,6 +57,11 @@ class IUsuarioRepository {
     throw new Error('Método no implementado');
   }
 
+  /** Devuelve true si cambió de inactivo a activo un empleado de rol 2 o 3. */
+  async reactivarEmpleado(idUsuario) {
+    throw new Error('Método no implementado');
+  }
+
   /**
    * Actualiza los datos de perfil del usuario autenticado (US-032: Apartado "Mis Datos")
    * @param {number} idUsuario

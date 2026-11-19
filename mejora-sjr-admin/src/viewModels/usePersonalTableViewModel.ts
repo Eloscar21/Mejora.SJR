@@ -5,6 +5,7 @@ import type { Empleado } from '../models/empleado.types';
 import type { AccionFormularioPersonal, CambioPersonal } from '../models/personalFormulario.types';
 import type { IAuthService } from '../services/contracts/IAuthService';
 import type { IEmpleadoConsultaService } from '../services/contracts/IEmpleadoConsultaService';
+import type { IEmpleadoGestionService } from '../services/contracts/IEmpleadoGestionService';
 
 export interface PersonalTableFeedback {
   tipo: 'success' | 'error';
@@ -24,7 +25,8 @@ export interface PersonalTableFeedback {
  */
 export function usePersonalTableViewModel(
   sesion: Pick<IAuthService, 'obtenerToken' | 'decodificarToken'>,
-  consulta: IEmpleadoConsultaService
+  consulta: IEmpleadoConsultaService,
+  gestion: Pick<IEmpleadoGestionService, 'reactivarEmpleado'>
 ) {
   const [inicializando, setInicializando] = useState(true);
   const [idRolActor, setIdRolActor] = useState<number | null>(null);
@@ -40,7 +42,10 @@ export function usePersonalTableViewModel(
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activos' | 'inactivos'>('todos');
 
   // Estado del modal (Crear, Editar, Desactivar)
-  const [accionModal, setAccionModal] = useState<AccionFormularioPersonal | null>(null);
+  const [accionModal, setAccionModal] = useState<AccionFormularioPersonal | { tipo: 'reactivar'; empleado: Empleado } | null>(null);
+  const [reactivando, setReactivando] = useState(false);
+  const envioReactivacion = useRef(false);
+  const conflictoPendiente = useRef<number | null>(null);
   const [feedback, setFeedback] = useState<PersonalTableFeedback | null>(null);
 
   // Control de sincronización
@@ -63,6 +68,9 @@ export function usePersonalTableViewModel(
           setEmpleados([]);
           setAccionModal(null);
           setFeedback(null);
+          conflictoPendiente.current = null;
+          envioReactivacion.current = false;
+          setReactivando(false);
         }
         const payload = token ? sesion.decodificarToken(token) : null;
 
@@ -91,6 +99,16 @@ export function usePersonalTableViewModel(
         const listado = await consulta.listarEmpleados();
         if (!cancelado) {
           setEmpleados(listado);
+          if (conflictoPendiente.current !== null) {
+            const empleado = listado.find(item => item.idUsuario === conflictoPendiente.current);
+            setFeedback(empleado ? {
+              tipo: empleado.activo ? 'success' : 'error',
+              texto: empleado.activo
+                ? `${empleado.nombre} ya está activo.`
+                : `${empleado.nombre} figura como inactivo en el listado actualizado.`,
+            } : { tipo: 'error', texto: 'El empleado ya no figura en el listado.' });
+            conflictoPendiente.current = null;
+          }
         }
       } catch (err: unknown) {
         if (!cancelado) {
@@ -180,8 +198,46 @@ export function usePersonalTableViewModel(
   }, [puedeGestionar, accionModal]);
 
   const cerrarModal = useCallback(() => {
-    setAccionModal(null);
+    if (!envioReactivacion.current) setAccionModal(null);
   }, []);
+
+  const puedeAbrirReactivacion = puedeGestionar && !accionModal && !isLoading && !errorListado;
+  function abrirReactivar(empleado: Empleado) {
+    if (puedeAbrirReactivacion && !empleado.activo) {
+      setAccionModal({ tipo: 'reactivar', empleado: { ...empleado } });
+    }
+  }
+
+  async function confirmarReactivacion() {
+    if (!puedeGestionar || accionModal?.tipo !== 'reactivar' || envioReactivacion.current) return;
+    const token = tokenListadoRef.current;
+    if (!token || sesion.obtenerToken() !== token) return;
+    const { idUsuario, nombre } = accionModal.empleado;
+    envioReactivacion.current = true;
+    setReactivando(true);
+    setFeedback(null);
+    try {
+      await gestion.reactivarEmpleado(idUsuario);
+      if (sesion.obtenerToken() !== token) return;
+      setFeedback({ tipo: 'success', texto: `Reactivación de ${nombre} confirmada.` });
+    } catch (err) {
+      if (sesion.obtenerToken() !== token) return;
+      if (typeof err === 'object' && err !== null && 'status' in err && err.status === 409) {
+        conflictoPendiente.current = idUsuario;
+        setFeedback({ tipo: 'error', texto: 'Conflicto de estado. Consulta el listado actualizado.' });
+      } else {
+        setFeedback({ tipo: 'error', texto: err instanceof Error ? err.message : 'No se pudo confirmar la reactivación.' });
+      }
+    } finally {
+      if (tokenListadoRef.current === token) {
+        envioReactivacion.current = false;
+        setReactivando(false);
+        setAccionModal(null);
+        setIsLoading(true);
+        setVersion(v => v + 1);
+      }
+    }
+  }
 
   const recargar = useCallback(() => {
     if (!puedeConsultar || accionModal) return;
@@ -259,6 +315,10 @@ export function usePersonalTableViewModel(
     abrirCrear,
     abrirEditar,
     abrirDesactivar,
+    abrirReactivar,
+    confirmarReactivacion,
+    puedeAbrirReactivacion,
+    reactivando,
     cerrarModal,
     accionModal,
     procesarCambio,

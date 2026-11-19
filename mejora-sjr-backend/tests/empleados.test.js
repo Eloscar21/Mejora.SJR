@@ -216,6 +216,38 @@ describe('US-008: API CRUD de Empleados', () => {
   });
 
   describe('PUT /api/empleados/:id (Editar Empleado)', () => {
+    it.each([0, false])('rechaza la edición cuando activo vale %p', async (activo) => {
+      const trabajador = usuarioRepo.usuarios.find(u => u.idUsuario === 2);
+      trabajador.activo = activo;
+      const anterior = { ...trabajador };
+
+      const res = await request(app)
+        .put('/api/empleados/2')
+        .set('Authorization', `Bearer ${superadminToken}`)
+        .send({ nombre: 'Cambio de nombre', idRol: 3, idDepartamento: 2 });
+
+      expect(res.status).toBe(404);
+      expect(trabajador).toEqual(anterior);
+    });
+
+    it('conserva la baja si ocurre entre la consulta y la escritura', async () => {
+      const actualizar = usuarioRepo.actualizarEmpleado.bind(usuarioRepo);
+      const trabajador = usuarioRepo.usuarios.find(u => u.idUsuario === 2);
+      const esperado = { ...trabajador, activo: 0 };
+      jest.spyOn(usuarioRepo, 'actualizarEmpleado').mockImplementationOnce(async (id, datos) => {
+        await usuarioRepo.desactivarEmpleado(id);
+        return actualizar(id, datos);
+      });
+
+      const res = await request(app)
+        .put('/api/empleados/2')
+        .set('Authorization', `Bearer ${superadminToken}`)
+        .send({ nombre: 'Cambio de nombre', idRol: 3, idDepartamento: 2 });
+
+      expect(res.status).toBe(404);
+      expect(trabajador).toEqual(esperado);
+    });
+
     it('Superadmin edita nombre, rol y depto de un empleado con éxito', async () => {
       const cambios = {
         nombre: 'Pedro Actualizado',
@@ -243,6 +275,52 @@ describe('US-008: API CRUD de Empleados', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('US-031: PATCH /api/empleados/:id/reactivar', () => {
+    const reactivar = (id) => request(app)
+      .patch(`/api/empleados/${id}/reactivar`)
+      .set('Authorization', `Bearer ${superadminToken}`);
+
+    it.each([[2, 0], [3, false]])('reactiva al empleado %i y conserva sus datos', async (id, activo) => {
+      const empleado = usuarioRepo.usuarios.find(u => u.idUsuario === id);
+      empleado.activo = activo;
+      const esperado = { ...empleado, activo: 1 };
+      const res = await reactivar(id);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(empleado).toEqual(esperado);
+    });
+
+    it('confirma una sola reactivación ante dos solicitudes simultáneas', async () => {
+      const trabajador = usuarioRepo.usuarios.find(u => u.idUsuario === 2);
+      trabajador.activo = 0;
+      const respuestas = await Promise.all([reactivar(2), reactivar(2)]);
+      expect(respuestas.map(r => r.status).sort()).toEqual([200, 409]);
+      expect(trabajador.activo).toBe(1);
+    });
+
+    it('exige sesión y rol 4 antes de modificar la cuenta', async () => {
+      const trabajador = usuarioRepo.usuarios.find(u => u.idUsuario === 2);
+      trabajador.activo = false;
+      const ruta = '/api/empleados/2/reactivar';
+      await request(app).patch(ruta).expect(401);
+      await request(app).patch(ruta).set('Authorization', `Bearer ${adminJapamToken}`).expect(403);
+      expect(trabajador.activo).toBe(false);
+    });
+
+    it.each([1, 4])('excluye la cuenta %i aunque esté inactiva', async (id) => {
+      const cuenta = usuarioRepo.usuarios.find(u => u.idUsuario === id);
+      cuenta.activo = false;
+      await reactivar(id).expect(404);
+      expect(cuenta.activo).toBe(false);
+    });
+
+    it('distingue un id inválido de un empleado inexistente', async () => {
+      await reactivar('abc').expect(400);
+      await reactivar('2147483648').expect(400);
+      await reactivar(999).expect(404);
     });
   });
 

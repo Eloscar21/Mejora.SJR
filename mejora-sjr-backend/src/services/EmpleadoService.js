@@ -17,7 +17,7 @@ class EmpleadoService {
   /** La gestión de cuentas está reservada al Superadmin, también fuera de HTTP. */
   _exigirSuperadmin(usuarioAutenticado) {
     if (!usuarioAutenticado || usuarioAutenticado.idRol !== 4) {
-      const error = new Error('Solo el Superadmin puede crear, editar o desactivar empleados.');
+      const error = new Error('Solo el Superadmin puede gestionar empleados.');
       error.statusCode = 403;
       throw error;
     }
@@ -150,7 +150,7 @@ class EmpleadoService {
     }
 
     const empleadoExistente = await this.usuarioRepository.buscarPorId(idNum);
-    if (!empleadoExistente || empleadoExistente.activo === 0) {
+    if (!empleadoExistente || (empleadoExistente.activo !== true && empleadoExistente.activo !== 1)) {
       const error = new Error('Empleado no encontrado o inactivo.');
       error.statusCode = 404;
       throw error;
@@ -168,8 +168,8 @@ class EmpleadoService {
     });
 
     if (!empleadoActualizado) {
-      const error = new Error('No se pudo actualizar el empleado.');
-      error.statusCode = 500;
+      const error = new Error('Empleado no encontrado o inactivo.');
+      error.statusCode = 404;
       throw error;
     }
 
@@ -211,6 +211,29 @@ class EmpleadoService {
     }
 
     return { mensaje: 'Empleado desactivado exitosamente (Soft Delete).' };
+  }
+
+  async reactivarEmpleado(idUsuario, usuarioAutenticado) {
+    this._exigirSuperadmin(usuarioAutenticado);
+    const id = Number(idUsuario);
+    if (!/^\d+$/.test(idUsuario) || id < 1 || id > 2147483647) {
+      const error = new Error('ID de empleado inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (await this.usuarioRepository.reactivarEmpleado(id)) return;
+
+    const empleado = await this.usuarioRepository.buscarPorId(id);
+    if (!empleado || ![2, 3].includes(empleado.idRol)) {
+      const error = new Error('Empleado no encontrado.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const error = new Error('El estado del empleado cambió o ya estaba activo. Actualiza el listado.');
+    error.statusCode = 409;
+    throw error;
   }
 }
 

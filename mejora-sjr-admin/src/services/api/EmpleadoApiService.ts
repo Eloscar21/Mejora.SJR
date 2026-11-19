@@ -105,6 +105,11 @@ export class EmpleadoApiService implements IEmpleadoConsultaService, IEmpleadoGe
     if (!esId(idUsuario)) throw new ApiError('El identificador del empleado no es válido.', null);
   }
 
+  async reactivarEmpleado(idUsuario: number): Promise<void> {
+    this.validarId(idUsuario);
+    await this.solicitar(`/${idUsuario}/reactivar`, 'PATCH');
+  }
+
   private async solicitar(path: string, method: string, datos?: object) {
     // Consultar el token en cada operación evita conservar una credencial anterior.
     const token = this.sesion.obtenerToken();

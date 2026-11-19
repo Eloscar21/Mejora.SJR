@@ -21,6 +21,7 @@ import type { Empleado } from '../../models/empleado.types';
 import type { IPersonalServices } from '../../services/contracts/IPersonalServices';
 import type { usePersonalTableViewModel } from '../../viewModels/usePersonalTableViewModel';
 import { PersonalFormularios } from '../../providers/PersonalFormularios';
+import { Modal } from '../../components/ui/Modal';
 import { IntercepcionErrorView } from '../errors/IntercepcionErrorView';
 
 interface PersonalDataGridProps {
@@ -458,7 +459,7 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                       {vm.puedeGestionar && (
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center space-x-1.5">
-                            {/* Botón LÁPIZ para Editar */}
+                            {empleado.activo ? <>
                             <button
                               type="button"
                               onClick={() => vm.abrirEditar(empleado)}
@@ -481,6 +482,14 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
+                            </> : (
+                              <button type="button" onClick={() => vm.abrirReactivar(empleado)}
+                                disabled={!vm.puedeAbrirReactivacion}
+                                aria-label={`Reactivar a ${empleado.nombre}`}
+                                className="rounded-lg border border-emerald-200 px-3 py-1.5 font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40">
+                                Reactivar
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}
@@ -504,7 +513,21 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
       </div>
 
       {/* 7. Compositor de Modales (Crear, Editar, Desactivar) */}
-      {vm.puedeGestionar && (
+      {vm.puedeGestionar && (vm.accionModal?.tipo === 'reactivar' ? (
+        <Modal titulo="Reactivar empleado" onCerrar={vm.cerrarModal} bloqueado={vm.reactivando}>
+          <div className="space-y-5 p-6" aria-busy={vm.reactivando}>
+            <p>¿Reactivar a <strong>{vm.accionModal.empleado.nombre}</strong> ({vm.accionModal.empleado.email}) con su rol y departamento actuales?</p>
+            <div className="flex justify-end gap-3">
+              <button type="button" autoFocus disabled={vm.reactivando} onClick={vm.cerrarModal}
+                className="rounded-lg border px-4 py-2 text-sm">Cancelar</button>
+              <button type="button" disabled={vm.reactivando} onClick={vm.confirmarReactivacion}
+                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-50">
+                {vm.reactivando ? 'Reactivando…' : 'Confirmar reactivación'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : (
         <PersonalFormularios
           accion={vm.accionModal}
           idRolActor={vm.idRolActor}
@@ -512,7 +535,7 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
           onCerrar={vm.cerrarModal}
           onCambio={vm.procesarCambio}
         />
-      )}
+      ))}
     </div>
   );
 };

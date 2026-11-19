@@ -30,6 +30,7 @@ const createEmpleadoRouter = (usuarioRepository, jwtSecret = process.env.JWT_SEC
   router.get('/', empleadoController.listar);
   router.put('/:id', authorizeSuperadmin, empleadoController.actualizar);
   router.patch('/:id', authorizeSuperadmin, empleadoController.desactivar);
+  router.patch('/:id/reactivar', authorizeSuperadmin, empleadoController.reactivar);
 
   return router;
 };
