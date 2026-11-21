@@ -21,8 +21,8 @@ export default function DashboardEjecutivoPage() {
     () =>
       process.env.NEXT_PUBLIC_USE_MOCK === 'true'
         ? new MockDashboardService()
-        : new DashboardApiService(),
-    []
+        : new DashboardApiService(authService),
+    [authService]
   );
 
   const viewModel = useDashboardViewModel(authService, dashboardService);

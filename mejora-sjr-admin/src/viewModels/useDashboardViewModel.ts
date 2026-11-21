@@ -29,7 +29,7 @@ const defaultAuthService: IAuthService = new AuthApiService();
 const defaultDashboardService: IDashboardService =
   process.env.NEXT_PUBLIC_USE_MOCK === 'true'
     ? new MockDashboardService()
-    : new DashboardApiService();
+    : new DashboardApiService(defaultAuthService);
 
 export function useDashboardViewModel(
   authService: IAuthService = defaultAuthService,
