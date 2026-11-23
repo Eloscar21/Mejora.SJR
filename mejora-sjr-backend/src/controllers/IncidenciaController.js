@@ -20,11 +20,7 @@ class IncidenciaController {
 
   async crear(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { descripcion, latitud, longitud, idCategoria, fotoUrl } = req.body;
-    const resultado = await this.incidenciaService.crearIncidencia(
-      { descripcion, latitud, longitud, idCategoria, fotoUrl },
-      usuarioAutenticado
-    );
+    const resultado = await this.incidenciaService.crearIncidencia(req.body, usuarioAutenticado);
     return res.status(201).json({
       success: true,
       message: 'Reporte ciudadano registrado exitosamente.',
@@ -44,16 +40,7 @@ class IncidenciaController {
 
   async listar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { idDepartamento, idEstado, idTrabajadorAsignado, soloAsignadasAMi } = req.query;
-    const resultado = await this.incidenciaService.listarIncidencias(
-      usuarioAutenticado,
-      {
-        idDepartamento,
-        idEstado,
-        idTrabajadorAsignado,
-        soloAsignadasAMi: soloAsignadasAMi === 'true'
-      }
-    );
+    const resultado = await this.incidenciaService.listarIncidencias(usuarioAutenticado, req.query);
     return res.status(200).json({
       success: true,
       message: 'Incidencias recuperadas exitosamente.',
@@ -64,10 +51,9 @@ class IncidenciaController {
   async asignar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { idTrabajador } = req.body;
     const resultado = await this.incidenciaService.asignarTrabajador(
       id,
-      idTrabajador,
+      req.body,
       usuarioAutenticado
     );
     return res.status(200).json({
@@ -80,10 +66,9 @@ class IncidenciaController {
   async descartar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { motivoRechazo } = req.body;
     const resultado = await this.incidenciaService.descartarIncidencia(
       id,
-      { motivoRechazo },
+      req.body,
       usuarioAutenticado
     );
     return res.status(200).json({
@@ -96,10 +81,9 @@ class IncidenciaController {
   async actualizarEstado(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { idEstado } = req.body;
     const resultado = await this.incidenciaService.actualizarEstado(
       id,
-      { idEstado },
+      req.body,
       usuarioAutenticado
     );
     return res.status(200).json({

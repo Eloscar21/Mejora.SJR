@@ -166,7 +166,8 @@ class IncidenciaService {
     } else if (rol === 2) {
       // Trabajador operativo: ve las asignadas a él o de su departamento
       queryFiltros.idDepartamento = deptoToken;
-      if (filtros.soloAsignadasAMi) {
+      const soloMias = filtros && (filtros.soloAsignadasAMi === true || filtros.soloAsignadasAMi === 'true');
+      if (soloMias) {
         queryFiltros.idTrabajadorAsignado = usuarioAutenticado.idUsuario;
       }
     } else if (rol !== 4) {
@@ -182,9 +183,12 @@ class IncidenciaService {
    * Asignar trabajador de campo a una incidencia (US-025)
    * Valida que el trabajador pertenezca al mismo departamento de la incidencia
    */
-  async asignarTrabajador(idIncidencia, idTrabajador, usuarioAutenticado) {
+  async asignarTrabajador(idIncidencia, datosTrabajador, usuarioAutenticado) {
     const idIncNum = Number(idIncidencia);
-    const idTrabNum = Number(idTrabajador);
+    const idTrabRaw = typeof datosTrabajador === 'object' && datosTrabajador !== null
+      ? datosTrabajador.idTrabajador
+      : datosTrabajador;
+    const idTrabNum = Number(idTrabRaw);
 
     if (!idIncNum || isNaN(idIncNum)) {
       const error = new Error('ID de incidencia inválido.');
@@ -240,8 +244,12 @@ class IncidenciaService {
   /**
    * Descartar incidencia como ficticia / falsa (Estado 5) (US-025)
    */
-  async descartarIncidencia(idIncidencia, { motivoRechazo }, usuarioAutenticado) {
+  async descartarIncidencia(idIncidencia, datosDescarte, usuarioAutenticado) {
     const idIncNum = Number(idIncidencia);
+    const motivoRaw = typeof datosDescarte === 'object' && datosDescarte !== null
+      ? datosDescarte.motivoRechazo
+      : datosDescarte;
+    const motivoRechazo = typeof motivoRaw === 'string' ? motivoRaw.trim() : '';
 
     if (!idIncNum || isNaN(idIncNum)) {
       const error = new Error('ID de incidencia inválido.');
@@ -249,7 +257,7 @@ class IncidenciaService {
       throw error;
     }
 
-    if (!motivoRechazo || typeof motivoRechazo !== 'string' || motivoRechazo.trim().length < 5) {
+    if (!motivoRechazo || motivoRechazo.length < 5) {
       const error = new Error('Debe proporcionar un motivo de descarte válido de al menos 5 caracteres.');
       error.statusCode = 400;
       throw error;
@@ -274,7 +282,7 @@ class IncidenciaService {
       throw error;
     }
 
-    const resultado = await this.incidenciaRepository.descartarIncidencia(idIncNum, motivoRechazo.trim());
+    const resultado = await this.incidenciaRepository.descartarIncidencia(idIncNum, motivoRechazo);
     return resultado;
   }
 
@@ -285,9 +293,12 @@ class IncidenciaService {
    * - Rol 3 (Admin departamental): únicamente incidencias de su departamento.
    * - Rol 4 (Superadmin): cualquier incidencia municipal.
    */
-  async actualizarEstado(idIncidencia, { idEstado }, usuarioAutenticado) {
+  async actualizarEstado(idIncidencia, datosEstado, usuarioAutenticado) {
     const idIncNum = Number(idIncidencia);
-    const nuevoEstado = Number(idEstado);
+    const estadoRaw = typeof datosEstado === 'object' && datosEstado !== null
+      ? datosEstado.idEstado
+      : datosEstado;
+    const nuevoEstado = Number(estadoRaw);
 
     if (!idIncNum || isNaN(idIncNum)) {
       const error = new Error('ID de incidencia inválido.');
