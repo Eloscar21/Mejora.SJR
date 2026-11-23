@@ -5,64 +5,54 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Mail, Loader2, CheckCircle2, AlertCircle, X, ShieldAlert } from 'lucide-react';
+import type { ISolicitudRecuperacionService } from '../../services/contracts/ISolicitudRecuperacionService';
+import { SolicitudRecuperacionApiService } from '../../services/api/SolicitudRecuperacionApiService';
+import { MockSolicitudRecuperacionService } from '../../services/mocks/MockSolicitudRecuperacionService';
+import { useSolicitarRecuperacionViewModel } from '../../viewModels/useSolicitarRecuperacionViewModel';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   emailInicial?: string;
   apiUrl?: string;
+  recuperacionService?: ISolicitudRecuperacionService;
 }
 
 export const SolicitarRecuperacionModal: React.FC<Props> = ({
   isOpen,
   onClose,
   emailInicial = '',
-  apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+  apiUrl,
+  recuperacionService,
 }) => {
-  const [email, setEmail] = useState(emailInicial);
-  const [cargando, setCargando] = useState(false);
-  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const service = useMemo<ISolicitudRecuperacionService>(() => {
+    if (recuperacionService) return recuperacionService;
+    return process.env.NEXT_PUBLIC_USE_MOCK === 'true'
+      ? new MockSolicitudRecuperacionService()
+      : new SolicitudRecuperacionApiService(apiUrl);
+  }, [recuperacionService, apiUrl]);
+
+  const {
+    email,
+    setEmail,
+    cargando,
+    mensajeExito,
+    error,
+    enviarSolicitud,
+    limpiarEstado,
+  } = useSolicitarRecuperacionViewModel(service, emailInicial, isOpen);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes('@')) {
-      setError('Ingresa un correo electrónico institucional válido.');
-      return;
-    }
-
-    setCargando(true);
-    setError(null);
-    setMensajeExito(null);
-
-    try {
-      const cleanBase = apiUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBase}/solicitudes-password/solicitar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() })
-      });
-
-      const body = await res.json();
-      if (!res.ok && res.status !== 200) {
-        throw new Error(body.message || 'No se pudo enviar la solicitud.');
-      }
-
-      setMensajeExito(body.message || 'Solicitud enviada al Superadministrador con éxito.');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al conectar con el servidor.');
-    } finally {
-      setCargando(false);
-    }
+    void enviarSolicitud();
   };
 
   const handleCerrar = () => {
-    setError(null);
-    setMensajeExito(null);
+    limpiarEstado();
     onClose();
   };
 

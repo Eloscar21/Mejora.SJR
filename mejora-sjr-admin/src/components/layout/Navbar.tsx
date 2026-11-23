@@ -7,43 +7,23 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { User, Shield, Building, Bell } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Bell } from 'lucide-react';
+import type { IAuthService } from '../../services/contracts/IAuthService';
 import { AuthApiService } from '../../services/api/AuthApiService';
-import { UsuarioSession, ROLES_SJR, DEPARTAMENTOS_SJR } from '../../models/auth.types';
+import { useNavbarViewModel } from '../../viewModels/useNavbarViewModel';
 
-const authService = new AuthApiService();
+interface NavbarProps {
+  authService?: IAuthService;
+}
 
-export const Navbar: React.FC = () => {
-  const [usuario, setUsuario] = useState<UsuarioSession | null>(null);
+export const Navbar: React.FC<NavbarProps> = ({ authService }) => {
+  const resolvedAuthService = useMemo<IAuthService>(
+    () => authService ?? new AuthApiService(),
+    [authService]
+  );
 
-  useEffect(() => {
-    // 1. Intentar leer desde localStorage
-    const userSession = authService.obtenerUsuario();
-    if (userSession) {
-      setUsuario(userSession);
-    } else {
-      // 2. Intentar decodificar desde el token
-      const decoded = authService.decodificarToken();
-      if (decoded) {
-        setUsuario({
-          idUsuario: decoded.idUsuario,
-          nombre: decoded.email.split('@')[0],
-          email: decoded.email,
-          idRol: decoded.idRol,
-          idDepartamento: decoded.idDepartamento
-        });
-      }
-    }
-  }, []);
-
-  const rolNombre = usuario?.idRol 
-    ? (ROLES_SJR[usuario.idRol as keyof typeof ROLES_SJR] || `Rol ${usuario.idRol}`)
-    : 'Cargando...';
-
-  const deptoNombre = usuario?.idDepartamento
-    ? (DEPARTAMENTOS_SJR[usuario.idDepartamento as keyof typeof DEPARTAMENTOS_SJR] || `Depto ${usuario.idDepartamento}`)
-    : (usuario?.idRol === 4 ? 'Municipio General (Superadmin)' : 'Sin Departamento');
+  const { usuario, rolNombre, deptoNombre } = useNavbarViewModel(resolvedAuthService);
 
   return (
     <header className="fixed top-0 left-64 right-0 h-16 bg-white border-b border-slate-200 z-20 px-8 flex items-center justify-between shadow-sm">

@@ -10,7 +10,7 @@
 
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import {
   Building2,
   Compass,
@@ -22,11 +22,14 @@ import {
   UserX,
 } from 'lucide-react';
 import { CodigoIntercepcionHttp } from '../../models/intercepcion.types';
+import type { IAuthService } from '../../services/contracts/IAuthService';
+import { AuthApiService } from '../../services/api/AuthApiService';
 import { useIntercepcionViewModel } from '../../viewModels/useIntercepcionViewModel';
 
 interface IntercepcionErrorViewProps {
   codigo: CodigoIntercepcionHttp;
   modo?: 'pantalla-completa' | 'embebido';
+  authService?: IAuthService;
 }
 
 function obtenerIconoPrincipal(codigo: CodigoIntercepcionHttp) {
@@ -38,14 +41,20 @@ function obtenerIconoPrincipal(codigo: CodigoIntercepcionHttp) {
 const IntercepcionContenido: React.FC<IntercepcionErrorViewProps> = ({
   codigo,
   modo = 'pantalla-completa',
+  authService,
 }) => {
+  const resolvedAuthService = useMemo<IAuthService>(
+    () => authService ?? new AuthApiService(),
+    [authService]
+  );
+
   const {
     descriptor,
     tieneSesionAdminValida,
     irADashboard,
     irALogin,
     cambiarDeCuenta,
-  } = useIntercepcionViewModel(codigo);
+  } = useIntercepcionViewModel(codigo, resolvedAuthService);
 
   const IconoEstado = obtenerIconoPrincipal(codigo);
 

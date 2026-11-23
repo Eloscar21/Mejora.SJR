@@ -14,9 +14,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IAuthService } from '../services/contracts/IAuthService';
 import { IDashboardService } from '../services/contracts/IDashboardService';
-import { AuthApiService } from '../services/api/AuthApiService';
-import { DashboardApiService } from '../services/api/DashboardApiService';
-import { MockDashboardService } from '../services/mocks/MockDashboardService';
 import { DEPARTAMENTOS_SJR, ROLES_SJR, UsuarioSession } from '../models/auth.types';
 import {
   DashboardResumenEjecutivo,
@@ -25,15 +22,9 @@ import {
   ReporteEjecutivoReciente,
 } from '../models/dashboard.types';
 
-const defaultAuthService: IAuthService = new AuthApiService();
-const defaultDashboardService: IDashboardService =
-  process.env.NEXT_PUBLIC_USE_MOCK === 'true'
-    ? new MockDashboardService()
-    : new DashboardApiService(defaultAuthService);
-
 export function useDashboardViewModel(
-  authService: IAuthService = defaultAuthService,
-  dashboardService: IDashboardService = defaultDashboardService
+  authService: IAuthService,
+  dashboardService: IDashboardService
 ) {
   const [usuario, setUsuario] = useState<UsuarioSession | null>(null);
   const [sesionLista, setSesionLista] = useState(false);

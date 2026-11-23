@@ -2,12 +2,14 @@
 'use strict';
 
 const express = require('express');
-const IncidenciaService = require('../services/IncidenciaService');
+const IncidenciaConsultaService = require('../services/IncidenciaConsultaService');
+const IncidenciaCreacionService = require('../services/IncidenciaCreacionService');
+const IncidenciaOperacionService = require('../services/IncidenciaOperacionService');
 const IncidenciaController = require('../controllers/IncidenciaController');
 const { authenticateToken, authorizeRoles } = require('../middlewares/authMiddleware');
 
 /**
- * Factory para crear las rutas de incidencias ciudadanas (DIP / IoC)
+ * Factory para crear las rutas de incidencias ciudadanas (DIP / IoC / ISP)
  * @param {import('../repositories/IIncidenciaRepository')} incidenciaRepository
  * @param {import('../repositories/ICatalogoRepository')} catalogoRepository
  * @param {import('../repositories/IUsuarioRepository')} [usuarioRepository]
@@ -21,8 +23,15 @@ const createIncidenciaRouter = (
 ) => {
   const router = express.Router();
 
-  const incidenciaService = new IncidenciaService(incidenciaRepository, catalogoRepository, usuarioRepository);
-  const incidenciaController = new IncidenciaController(incidenciaService);
+  const consultaService = new IncidenciaConsultaService(incidenciaRepository);
+  const creacionService = new IncidenciaCreacionService(incidenciaRepository, catalogoRepository);
+  const operacionService = new IncidenciaOperacionService(incidenciaRepository, usuarioRepository);
+
+  const incidenciaController = new IncidenciaController({
+    consultaService,
+    creacionService,
+    operacionService
+  });
 
   // Todas las rutas requieren autenticación JWT
   router.use(authenticateToken(jwtSecret));
@@ -49,5 +58,3 @@ const createIncidenciaRouter = (
 };
 
 module.exports = createIncidenciaRouter;
-
-

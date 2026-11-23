@@ -13,18 +13,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { IAuthService } from '../services/contracts/IAuthService';
-import { AuthApiService } from '../services/api/AuthApiService';
 import { ROLES_SJR } from '../models/auth.types';
 import {
   CodigoIntercepcionHttp,
   DescriptorIntercepcion,
 } from '../models/intercepcion.types';
 
-const defaultAuthService: IAuthService = new AuthApiService();
-
 export function useIntercepcionViewModel(
   codigo: CodigoIntercepcionHttp,
-  authService: IAuthService = defaultAuthService
+  authService: IAuthService
 ) {
   const router = useRouter();
   const pathname = usePathname();

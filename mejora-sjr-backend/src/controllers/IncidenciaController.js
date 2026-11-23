@@ -3,13 +3,20 @@
 
 class IncidenciaController {
   /**
-   * @param {import('../services/IncidenciaService')} incidenciaService
+   * Recibe servicios segregados (ISP) o una fachada compatible.
+   * @param {Object} servicios
+   * @param {import('../services/contracts/IIncidenciaConsultaService')} [servicios.consultaService]
+   * @param {import('../services/contracts/IIncidenciaCreacionService')} [servicios.creacionService]
+   * @param {import('../services/contracts/IIncidenciaOperacionService')} [servicios.operacionService]
    */
-  constructor(incidenciaService) {
-    if (!incidenciaService) {
+  constructor(servicios) {
+    if (!servicios) {
       throw new Error('incidenciaService es requerido en IncidenciaController.');
     }
-    this.incidenciaService = incidenciaService;
+    this.consultaService = servicios.consultaService || servicios;
+    this.creacionService = servicios.creacionService || servicios;
+    this.operacionService = servicios.operacionService || servicios;
+
     this.crear = this.crear.bind(this);
     this.listar = this.listar.bind(this);
     this.listarMisReportes = this.listarMisReportes.bind(this);
@@ -20,7 +27,7 @@ class IncidenciaController {
 
   async crear(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const resultado = await this.incidenciaService.crearIncidencia(req.body, usuarioAutenticado);
+    const resultado = await this.creacionService.crearIncidencia(req.body, usuarioAutenticado);
     return res.status(201).json({
       success: true,
       message: 'Reporte ciudadano registrado exitosamente.',
@@ -30,7 +37,7 @@ class IncidenciaController {
 
   async listarMisReportes(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const resultado = await this.incidenciaService.listarMisReportes(usuarioAutenticado);
+    const resultado = await this.consultaService.listarMisReportes(usuarioAutenticado);
     return res.status(200).json({
       success: true,
       message: 'Tus reportes fueron recuperados exitosamente.',
@@ -40,7 +47,7 @@ class IncidenciaController {
 
   async listar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const resultado = await this.incidenciaService.listarIncidencias(usuarioAutenticado, req.query);
+    const resultado = await this.consultaService.listarIncidencias(usuarioAutenticado, req.query);
     return res.status(200).json({
       success: true,
       message: 'Incidencias recuperadas exitosamente.',
@@ -51,7 +58,7 @@ class IncidenciaController {
   async asignar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const resultado = await this.incidenciaService.asignarTrabajador(
+    const resultado = await this.operacionService.asignarTrabajador(
       id,
       req.body,
       usuarioAutenticado
@@ -66,7 +73,7 @@ class IncidenciaController {
   async descartar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const resultado = await this.incidenciaService.descartarIncidencia(
+    const resultado = await this.operacionService.descartarIncidencia(
       id,
       req.body,
       usuarioAutenticado
@@ -81,7 +88,7 @@ class IncidenciaController {
   async actualizarEstado(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const resultado = await this.incidenciaService.actualizarEstado(
+    const resultado = await this.operacionService.actualizarEstado(
       id,
       req.body,
       usuarioAutenticado
@@ -95,4 +102,3 @@ class IncidenciaController {
 }
 
 module.exports = IncidenciaController;
-

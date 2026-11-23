@@ -3,7 +3,7 @@
  * Modal para solicitar recuperación asistida de contraseña desde la app móvil (US-028 / US-029).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -16,73 +16,41 @@ import {
   Platform,
 } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
-import { getApiBaseUrl } from '../services/api/apiConfig';
+import type { ISolicitudRecuperacionService } from '../services/contracts/ISolicitudRecuperacionService';
+import { SolicitudRecuperacionApiService } from '../services/api/SolicitudRecuperacionApiService';
+import { useSolicitarRecuperacionViewModel } from '../viewModels/useSolicitarRecuperacionViewModel';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   initialEmail?: string;
+  recuperacionService?: ISolicitudRecuperacionService;
 }
 
 export const SolicitarRecuperacionModal: React.FC<Props> = ({
   visible,
   onClose,
   initialEmail = '',
+  recuperacionService,
 }) => {
-  const [email, setEmail] = useState(initialEmail);
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const service = useMemo<ISolicitudRecuperacionService>(
+    () => recuperacionService ?? new SolicitudRecuperacionApiService(),
+    [recuperacionService]
+  );
 
-  useEffect(() => {
-    if (visible) {
-      setEmail(initialEmail);
-      setSuccessMessage(null);
-      setErrorMessage(null);
-    }
-  }, [visible, initialEmail]);
-
-  const handleSubmit = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes('@') || !trimmed.includes('.')) {
-      setErrorMessage('Ingresa un correo electrónico válido.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    try {
-      const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/solicitudes-password/solicitar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ email: trimmed }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.message || 'No se pudo enviar la solicitud.');
-      }
-
-      setSuccessMessage(
-        data?.message || 'Solicitud enviada con éxito. El Superadministrador atenderá tu caso.'
-      );
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Error de conexión con el servidor municipal.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    email,
+    setEmail,
+    isLoading,
+    successMessage,
+    errorMessage,
+    setErrorMessage,
+    handleSubmit,
+    resetMessages,
+  } = useSolicitarRecuperacionViewModel(service, initialEmail, visible);
 
   const handleClose = () => {
-    setSuccessMessage(null);
-    setErrorMessage(null);
+    resetMessages();
     onClose();
   };
 
