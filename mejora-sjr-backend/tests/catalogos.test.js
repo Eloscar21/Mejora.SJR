@@ -179,12 +179,12 @@ describe('US-002: API de Catálogos (Departamentos y Categorías)', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data).toEqual({
+      expect(res.body.data).toEqual(expect.objectContaining({
         idCategoria: 5,
         nombre: 'Recolección de escombro',
         idDepartamento: 2,
         departamentoNombre: 'Servicios Públicos'
-      });
+      }));
 
       // Verificar que GET /api/catalogos/categorias ya incluye la nueva categoría
       const resGet = await request(app).get('/api/catalogos/categorias');
@@ -228,6 +228,50 @@ describe('US-002: API de Catálogos (Departamentos y Categorías)', () => {
         .send({ nombre: 'Categoría ciudadana', idDepartamento: 1 });
 
       expect(resCiudadano.status).toBe(403);
+    });
+  });
+
+  describe('PATCH /api/catalogos/categorias/:id/estado (US-037)', () => {
+    it('Admin JAPAM (Rol 3, Depto 1) puede marcar como inactiva una categoría de su departamento y el ciudadano deja de verla', async () => {
+      const tokenAdmin = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1 });
+
+      const resPatch = await request(app)
+        .patch('/api/catalogos/categorias/1/estado')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ activo: false });
+
+      expect(resPatch.status).toBe(200);
+      expect(resPatch.body.success).toBe(true);
+      expect(resPatch.body.data.activo).toBe(false);
+
+      // Consulta del ciudadano (sin token o Rol 1): categoría 1 ya NO debe aparecer
+      const resCiudadano = await request(app).get('/api/catalogos/categorias');
+      expect(resCiudadano.status).toBe(200);
+      const idsVisibles = resCiudadano.body.data.map(c => c.idCategoria);
+      expect(idsVisibles).not.toContain(1);
+      expect(idsVisibles).toEqual([2, 3, 4]);
+
+      // Consulta del Admin (Rol 3): sigue viendo todas para poder reactivarlas
+      const resAdmin = await request(app)
+        .get('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${tokenAdmin}`);
+      expect(resAdmin.status).toBe(200);
+      const cat1Admin = resAdmin.body.data.find(c => c.idCategoria === 1);
+      expect(cat1Admin).toBeDefined();
+      expect(cat1Admin.activo).toBe(false);
+    });
+
+    it('rechaza con 403 si un Admin de Depto intenta cambiar el estado de una categoría de otra dependencia', async () => {
+      const tokenJapam = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1 });
+
+      // Categoría 3 pertenece a Servicios Públicos (Depto 2)
+      const res = await request(app)
+        .patch('/api/catalogos/categorias/3/estado')
+        .set('Authorization', `Bearer ${tokenJapam}`)
+        .send({ activo: false });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
     });
   });
 });

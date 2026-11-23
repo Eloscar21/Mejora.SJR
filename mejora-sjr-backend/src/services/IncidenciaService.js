@@ -70,7 +70,7 @@ class IncidenciaService {
     // Si catalogoRepository está disponible, verificar existencia de la categoría
     if (this.catalogoRepository && typeof this.catalogoRepository.obtenerCategorias === 'function') {
       const categorias = await this.catalogoRepository.obtenerCategorias();
-      const existeCategoria = categorias.some(c => c.idCategoria === catNum);
+      const existeCategoria = categorias.some(c => c.idCategoria === catNum && c.activo !== false);
       if (!existeCategoria) {
         const error = new Error(`La categoría con ID ${catNum} no existe en el catálogo.`);
         error.statusCode = 400;

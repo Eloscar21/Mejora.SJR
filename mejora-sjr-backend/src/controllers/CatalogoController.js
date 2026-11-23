@@ -14,6 +14,7 @@ class CatalogoController {
     this.obtenerCategorias = this.obtenerCategorias.bind(this);
     this.crearCategoria = this.crearCategoria.bind(this);
     this.actualizarCategoria = this.actualizarCategoria.bind(this);
+    this.cambiarEstado = this.cambiarEstado.bind(this);
   }
 
   async obtenerDepartamentos(req, res) {
@@ -67,6 +68,25 @@ class CatalogoController {
       success: true,
       message: 'Categoría actualizada exitosamente.',
       data: actualizada
+    });
+  }
+
+  /**
+   * PATCH /api/catalogos/categorias/:id/estado (US-037)
+   */
+  async cambiarEstado(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
+    const { id } = req.params;
+    const resultado = await this.catalogoService.cambiarEstadoCategoria(
+      id,
+      req.body,
+      usuarioAutenticado
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Categoría marcada como ${resultado.activo ? 'activa' : 'inactiva'} exitosamente.`,
+      data: resultado
     });
   }
 }

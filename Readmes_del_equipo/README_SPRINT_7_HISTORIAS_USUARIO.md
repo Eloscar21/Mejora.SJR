@@ -15,6 +15,7 @@
 | **US-035** | Backend (`mejora-sjr-backend`), Web Admin (`mejora-sjr-admin`) y Mobile (`mejora-sjr-mobile`) | **Persistencia Real en Azure SQL y Propagación de Nuevas Categorías al Formulario Ciudadano** | 1. Crear `SqlCatalogoRepository.js` con consultas a Azure SQL e inyectarlo en `server.js` (reemplazando `MockCatalogoRepository`).<br>2. Crear el endpoint `POST /api/catalogos/categorias` con validación RBAC departamental.<br>3. Conectar el modal de la web para persistir en la tabla `Categorias`.<br>4. Asegurar que la app móvil lea en tiempo real las nuevas categorías en el formulario de reporte ciudadano. | ✅ **Implementado y Verificado** |
 | **US-036** | Mobile (`mejora-sjr-mobile`) + Backend (`mejora-sjr-backend`) | **Interacción Operativa en Campo: Visualización de Evidencias Fotográficas y Cambio de Estado de Incidencias** | 1. Implementar `PATCH /api/incidencias/:id/estado` con RBAC para permitir a cuadrillas (Rol 2) actualizar órdenes asignadas a En curso (3) o Atendida (4).<br>2. En `TareaCard`, renderizar vista previa de la fotografía ciudadana (`fotoInicialUrl`) y modal a pantalla completa.<br>3. Integrar botones de acción interactiva en la tarjeta ("▶️ Poner en marcha", "✔️ Marcar Atendida").<br>4. Actualizar contadores y filtros reactivamente en `useBandejaViewModel.ts`. | ✅ **Implementado y Verificado** |
 | **US-037** | Mobile (`mejora-sjr-mobile`) | **Seguimiento y Transparencia Ciudadana: Semáforo de Estatus, Stepper Visual de 4 Fases y Visor de Evidencia en "Mis Reportes"** | 1. Implementar stepper visual interactivo de 4 etapas (Recibido -> En revisión -> En curso -> Atendido).<br>2. Diseñar semáforo y chip de estado por color y background (`#16A34A` verde para Atendido, `#2563EB` azul para En progreso, etc.).<br>3. Agregar mensaje explicativo de transparencia ciudadana por cada fase municipal.<br>4. Integrar banner de acceso rápido al seguimiento en `CrearReporteView.tsx` y visor modal de fotografía de evidencia. | ✅ **Implementado y Verificado** |
+| **US-038** | Web Admin (`mejora-sjr-admin`), Backend (`mejora-sjr-backend`) y Mobile (`mejora-sjr-mobile`) | **Persistencia de Estado Activo/Inactivo de Categorías y Restricción Dinámica en el Formulario Ciudadano** | 1. Agregar columna `Activo BIT NOT NULL DEFAULT 1` a la tabla `Categorias` en Azure SQL.<br>2. Crear endpoint `PATCH /api/catalogos/categorias/:id/estado` con RBAC departamental y Skinny Controller.<br>3. Conectar la Web Admin para enviar el cambio de estado con Bearer JWT.<br>4. Filtrar categorías inactivas en el backend para ciudadanos y en la app móvil, actualizando el selector y conteo disponible en tiempo real. | ✅ **Implementado y Verificado** |
 
 ---
 
@@ -159,4 +160,47 @@ Escenario: Visualización en el formulario móvil del ciudadano
   Cuando un ciudadano abre la app móvil para levantar un reporte de JAPAM
   Entonces el selector de categorías lista "Fuga en medidor"
   Y el ciudadano puede seleccionarla y registrar su reporte exitosamente.
+```
+
+---
+
+## 🚫 Historia de Usuario: US-038
+
+### **Título:** Persistencia de Estado Activo/Inactivo de Categorías y Restricción Dinámica en el Formulario Ciudadano
+- **Módulos:** `mejora-sjr-admin`, `mejora-sjr-backend` & `mejora-sjr-mobile`  
+- **Roles:** Rol 3 (Admin Departamental), Rol 4 (Superadmin), Rol 1 (Ciudadano)
+
+### **1. Narrativa Ágil:**
+> **Como** Administrador Departamental o de Dependencia (Rol 3, ej. *Emily Ochoa* en JAPAM),  
+> **Quiero** poder desactivar o activar categorías de reportes desde el panel administrativo de Catálogos y que el cambio persista en la base de datos central,  
+> **Para** que los ciudadanos no puedan seleccionar ni levantar reportes de incidencias en categorías dadas de baja temporal o definitivamente (por ejemplo, "Pozo de agua").
+
+### **2. Causa Raíz Identificada:**
+1. **Frontend Web sin persistencia remota:** En `mejora-sjr-admin/src/services/api/CatalogoApiService.ts`, el método `cambiarEstadoCategoria(idCategoria, activo)` únicamente modificaba un array reactivo en memoria local del navegador, sin invocar peticiones HTTP al backend.
+2. **Esquema de Base de Datos sin columna de estado:** En `mejora-sjr-backend/schema.sql`, la tabla `Categorias` no poseía columna `Activo BIT`, impidiendo almacenar si una categoría está habilitada o inhabilitada.
+3. **Backend sin endpoint ni filtrado por rol:** No existía la ruta `PATCH /api/catalogos/categorias/:id/estado`. Además, `CatalogoService.listarCategorias` retornaba indistintamente todas las categorías sin distinguir si el solicitante era un ciudadano o un administrador.
+4. **App móvil sin filtrado de inactivas:** En `mejora-sjr-mobile/src/viewModels/useReporteViewModel.ts`, el selector de categorías solo filtraba por dependencia (`idDepartamento`), permitiendo que categorías inactivas siguieran apareciendo seleccionables para los ciudadanos (mostrando por ejemplo *"3 categorías disponibles"* en lugar de *"2"*).
+
+### **3. Reglas de Negocio:**
+1. **Persistencia Estricta de Estado:** Todo cambio de estado de una categoría debe ejecutarse en Azure SQL mediante `UPDATE Categorias SET Activo = @Activo WHERE IdCategoria = @IdCategoria`.
+2. **Aislamiento Departamental (RBAC):** Un Administrador Departamental (Rol 3) solo puede activar/desactivar categorías de su propia dependencia. El Superadmin (Rol 4) tiene acceso irrestricto.
+3. **Filtrado Ciudadano Automático:** Al consultar categorías con rol ciudadano o anónimo, el backend únicamente devuelve registros con `Activo = 1`.
+4. **Validación de Integridad:** El backend bloquea con HTTP 400 cualquier intento de crear una incidencia en una categoría inactiva.
+5. **Sincronización en la App Móvil:** La app móvil excluye del selector cualquier categoría inactiva y recalcula el conteo visible de categorías disponibles al instante.
+
+### **4. Criterios de Aceptación (Gherkin):**
+```gherkin
+Escenario: Administrador desactiva una categoría y se persiste en Azure SQL
+  Dado que la administradora de JAPAM "Emily Ochoa" (Rol 3) visualiza el catálogo de categorías
+  Cuando pulsa el botón de estado de la categoría "Pozo de agua" para cambiarla a inactiva
+  Entonces el frontend envía "PATCH /api/catalogos/categorias/5/estado" con { "activo": false }
+  Y el backend actualiza la columna "Activo = 0" en Azure SQL
+  Y responde HTTP 200 con la confirmación.
+
+Escenario: El ciudadano ya no puede visualizar ni seleccionar la categoría inactiva
+  Dado que la categoría "Pozo de agua" está marcada como Activo = 0
+  Cuando un ciudadano abre el formulario de nuevo reporte en la aplicación móvil
+  Entonces el modal de selección de categorías solo muestra "Fugas de agua" y "Alcantarillado"
+  Y la categoría inactiva "Pozo de agua" queda completamente excluida
+  Y el encabezado indica correctamente "2 categorías disponibles".
 ```

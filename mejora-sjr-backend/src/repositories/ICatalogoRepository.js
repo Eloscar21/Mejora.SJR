@@ -10,7 +10,7 @@ class ICatalogoRepository {
     throw new Error('Método no implementado');
   }
 
-  async obtenerCategorias(idDepartamento = null) {
+  async obtenerCategorias(idDepartamento = null, soloActivas = false) {
     throw new Error('Método no implementado');
   }
 
@@ -19,6 +19,10 @@ class ICatalogoRepository {
   }
 
   async actualizarCategoria(idCategoria, datosCategoria) {
+    throw new Error('Método no implementado');
+  }
+
+  async cambiarEstadoCategoria(idCategoria, activo) {
     throw new Error('Método no implementado');
   }
 }

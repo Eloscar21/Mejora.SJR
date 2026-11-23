@@ -225,6 +225,26 @@ export class CatalogoApiService implements ICatalogoService {
   }
 
   async cambiarEstadoCategoria(idCategoria: number, activo: boolean): Promise<CategoriaReporte> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/catalogos/categorias/${idCategoria}/estado`, {
+        method: 'PATCH',
+        headers: this.obtenerHeaders(true),
+        body: JSON.stringify({ activo: Boolean(activo) }),
+      });
+    } catch {
+      return this.store.cambiarEstadoCategoria(idCategoria, activo);
+    }
+
+    if (!response.ok) {
+      let msg = 'No se pudo cambiar el estado de la categoría en el servidor.';
+      try {
+        const body = await response.json();
+        if (esObjeto(body) && typeof body.message === 'string') msg = body.message;
+      } catch {}
+      throw new Error(msg);
+    }
+
     return this.store.cambiarEstadoCategoria(idCategoria, activo);
   }
 }

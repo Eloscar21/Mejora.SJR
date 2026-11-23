@@ -34,6 +34,7 @@ const createCatalogoRouter = (
 
   // US-035: Creación y edición física de categorías con RBAC por departamento (Roles 3 y 4)
   router.post('/categorias', requireAuth, authorizeRoles(3, 4), catalogoController.crearCategoria);
+  router.patch('/categorias/:id/estado', requireAuth, authorizeRoles(3, 4), catalogoController.cambiarEstado);
   router.put('/categorias/:id', requireAuth, authorizeRoles(3, 4), catalogoController.actualizarCategoria);
   router.patch('/categorias/:id', requireAuth, authorizeRoles(3, 4), catalogoController.actualizarCategoria);
 

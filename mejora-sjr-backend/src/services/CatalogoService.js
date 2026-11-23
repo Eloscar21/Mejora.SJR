@@ -25,6 +25,10 @@ class CatalogoService {
     const rawDepto = typeof filtrosOId === 'object' && filtrosOId !== null
       ? filtrosOId.idDepartamento
       : filtrosOId;
+    const soloActivasParam = typeof filtrosOId === 'object' && filtrosOId !== null
+      ? filtrosOId.soloActivas
+      : null;
+
     let deptoIdFiltrar = rawDepto;
 
     // Aislamiento Departamental Estricto (US-030): Admin de Depto (Rol 3) solo ve su propia dependencia
@@ -38,6 +42,15 @@ class CatalogoService {
       deptoIdFiltrar = deptoActor;
     }
 
+    // Regla de Negocio para el Ciudadano (US-037):
+    // El ciudadano (Rol 1 o sin token) solo ve categorías activas (Activo = 1).
+    // Los administradores (Rol 3 y 4) ven todas por defecto para gestionarlas, a menos que filtren soloActivas=true.
+    const rol = usuarioAutenticado ? Number(usuarioAutenticado.idRol) : 1;
+    const esAdmin = rol === 3 || rol === 4;
+    const soloActivas = esAdmin
+      ? (soloActivasParam === true || soloActivasParam === 'true')
+      : true;
+
     if (deptoIdFiltrar !== null && deptoIdFiltrar !== undefined && deptoIdFiltrar !== '') {
       const deptoIdNum = Number(deptoIdFiltrar);
       if (isNaN(deptoIdNum) || deptoIdNum <= 0) {
@@ -45,10 +58,10 @@ class CatalogoService {
         error.statusCode = 400;
         throw error;
       }
-      return await this.catalogoRepository.obtenerCategorias(deptoIdNum);
+      return await this.catalogoRepository.obtenerCategorias(deptoIdNum, soloActivas);
     }
 
-    return await this.catalogoRepository.obtenerCategorias();
+    return await this.catalogoRepository.obtenerCategorias(null, soloActivas);
   }
 
   /**
@@ -185,6 +198,57 @@ class CatalogoService {
       nombre: nombreLimpio,
       idDepartamento: deptoIdNum
     });
+  }
+
+  /**
+   * Cambia el estado (activo/inactivo) de una categoría con validación RBAC departamental (US-037).
+   * - Rol 3 (Admin Depto): Solo puede activar/desactivar categorías de su propio departamento.
+   * - Rol 4 (Superadmin): Puede activar/desactivar categorías de cualquier departamento.
+   */
+  async cambiarEstadoCategoria(idCategoria, datosEstado = {}, usuarioAutenticado = null) {
+    if (!usuarioAutenticado || !usuarioAutenticado.idRol) {
+      const error = new Error('Se requiere autenticación para cambiar el estado de la categoría.');
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const rolActor = Number(usuarioAutenticado.idRol);
+    if (rolActor !== 3 && rolActor !== 4) {
+      const error = new Error('Acceso denegado: Solo Administradores y Superadmin pueden cambiar el estado de categorías.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const idCatNum = Number(idCategoria);
+    if (!idCatNum || isNaN(idCatNum) || idCatNum <= 0) {
+      const error = new Error('ID de categoría inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const todas = await this.catalogoRepository.obtenerCategorias(null, false);
+    const actual = todas.find((c) => Number(c.idCategoria) === idCatNum);
+    if (!actual) {
+      const error = new Error('La categoría indicada no existe.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (rolActor === 3) {
+      const deptoActor = Number(usuarioAutenticado.idDepartamento);
+      if (Number(actual.idDepartamento) !== deptoActor) {
+        const error = new Error('Acceso denegado: No tienes autorización para modificar categorías de otra dependencia.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    const activoRaw = typeof datosEstado === 'object' && datosEstado !== null
+      ? datosEstado.activo
+      : datosEstado;
+    const nuevoActivo = activoRaw === true || activoRaw === 'true' || activoRaw === 1 || activoRaw === '1';
+
+    return await this.catalogoRepository.cambiarEstadoCategoria(idCatNum, nuevoActivo);
   }
 }
 

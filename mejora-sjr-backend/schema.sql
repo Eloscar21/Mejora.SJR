@@ -30,6 +30,7 @@ CREATE TABLE Categorias (
     IdCategoria INT PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     IdDepartamento INT NOT NULL,
+    Activo BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_Categorias_Departamentos FOREIGN KEY (IdDepartamento) 
         REFERENCES Departamentos(IdDepartamento)
 );

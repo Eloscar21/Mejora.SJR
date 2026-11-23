@@ -71,7 +71,7 @@ export class CatalogoApiService implements ICatalogoService {
 
     const json = (await response.json()) as CatalogoResponse<Categoria>;
     const lista = Array.isArray(json?.data) ? json.data : [];
-    return lista.map((c) => ({
+    return lista.map((c: any) => ({
       idCategoria: Number(c.idCategoria),
       nombre: String(c.nombre).trim(),
       idDepartamento: Number(c.idDepartamento),
@@ -80,6 +80,7 @@ export class CatalogoApiService implements ICatalogoService {
         : Number(c.idDepartamento) === 1
           ? 'JAPAM'
           : 'Servicios Públicos',
+      activo: c.activo !== undefined ? Boolean(c.activo) : true,
     }));
   }
 }

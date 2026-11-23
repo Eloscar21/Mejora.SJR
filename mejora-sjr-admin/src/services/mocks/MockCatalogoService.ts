@@ -305,6 +305,7 @@ export class MockCatalogoService implements ICatalogoService {
           nombre: remota.nombre,
           idDepartamento: Number(remota.idDepartamento),
           departamentoNombre: deptoNombre,
+          activo: (remota as any).activo !== undefined ? Boolean((remota as any).activo) : this.categorias[idx].activo,
         };
       } else {
         this.categorias.push({
@@ -315,7 +316,7 @@ export class MockCatalogoService implements ICatalogoService {
           descripcion: 'Categoría oficial de reporte ciudadano.',
           prioridad: 'Media',
           slaHoras: 48,
-          activo: true,
+          activo: (remota as any).activo !== undefined ? Boolean((remota as any).activo) : true,
         });
       }
     }

@@ -111,7 +111,8 @@ export function useReporteViewModel({
   })), [departamentos]);
 
   const categoriasItems = useMemo<PickerItem<number>[]>(() => {
-    const visibles = selectedDepartamento ? categorias.filter(cat => cat.idDepartamento === selectedDepartamento) : categorias;
+    const activas = categorias.filter(cat => cat.activo !== false);
+    const visibles = selectedDepartamento ? activas.filter(cat => cat.idDepartamento === selectedDepartamento) : activas;
     return visibles.map(cat => ({ label: cat.nombre, value: cat.idCategoria, extraInfo: cat.departamentoNombre }));
   }, [categorias, selectedDepartamento]);
 
@@ -202,7 +203,7 @@ export function useReporteViewModel({
     if (!departamentos.some(depto => depto.idDepartamento === selectedDepartamento)) {
       newErrors.departamento = 'Selecciona un departamento del catálogo.';
     }
-    if (!categoria || categoria.idDepartamento !== selectedDepartamento) {
+    if (!categoria || categoria.idDepartamento !== selectedDepartamento || categoria.activo === false) {
       newErrors.categoria = 'Selecciona una categoría válida del departamento.';
     }
     if (descripcion.trim().length < 10) newErrors.descripcion = 'La descripción debe tener al menos 10 caracteres.';

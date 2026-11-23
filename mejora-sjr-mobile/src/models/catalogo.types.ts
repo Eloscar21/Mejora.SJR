@@ -16,6 +16,7 @@ export interface Categoria {
   nombre: string;
   idDepartamento: number;
   departamentoNombre?: string;
+  activo?: boolean;
 }
 
 export interface CatalogoResponse<T> {

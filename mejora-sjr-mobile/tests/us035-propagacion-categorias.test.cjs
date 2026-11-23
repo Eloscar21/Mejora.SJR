@@ -106,6 +106,7 @@ test('US-035 (1): SqlCatalogoRepository ejecuta consultas e inserciones parametr
     nombre: 'Drenaje pluvial obstruido',
     idDepartamento: 1,
     departamentoNombre: 'JAPAM',
+    activo: true,
   });
 
   const categorias = await sqlRepo.obtenerCategorias(1);
@@ -203,6 +204,7 @@ test('US-035 (2, 3 y 4): Propagación E2E desde Web Admin (POST /api/catalogos/c
       nombre: 'Limpieza de parques',
       idDepartamento: 2,
       departamentoNombre: 'Servicios Públicos',
+      activo: true,
     });
   } finally {
     global.fetch = originalFetch;
