@@ -44,6 +44,17 @@ const borrador = { descripcion: 'Bache frente al parque municipal', idCategoria:
 function reporte(overrides = {}) {
   return { idIncidencia: 42, idUsuario: 1, ...borrador, idEstado: 1, fechaCreacion: fecha, fotoInicialUrl: null, ...overrides };
 }
+if (typeof Response === 'undefined') {
+  global.Response = class MockResponse {
+    constructor(body, init = {}) {
+      this.bodyText = String(body);
+      this.status = init.status || 200;
+      this.ok = this.status >= 200 && this.status < 300;
+    }
+    async json() { return JSON.parse(this.bodyText); }
+    async text() { return this.bodyText; }
+  };
+}
 const response = (data, status = 200, success = true) => new Response(JSON.stringify({ success, data }), { status });
 const plain = value => JSON.parse(JSON.stringify(value));
 const ids = filas => Array.from(filas, fila => fila.reporte.idIncidencia);

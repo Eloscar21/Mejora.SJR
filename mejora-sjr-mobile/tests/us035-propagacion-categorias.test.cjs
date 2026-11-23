@@ -113,6 +113,18 @@ test('US-035 (1): SqlCatalogoRepository ejecuta consultas e inserciones parametr
   assert.equal(categorias[1].nombre, 'Drenaje pluvial obstruido');
 });
 
+if (typeof Response === 'undefined') {
+  global.Response = class MockResponse {
+    constructor(body, init = {}) {
+      this.bodyText = String(body);
+      this.status = init.status || 200;
+      this.ok = this.status >= 200 && this.status < 300;
+    }
+    async json() { return JSON.parse(this.bodyText); }
+    async text() { return this.bodyText; }
+  };
+}
+
 test('US-035 (2, 3 y 4): Propagación E2E desde Web Admin (POST /api/catalogos/categorias) hacia App Móvil (ReporteFormView)', async () => {
   const backendRepo = new MockCatalogoRepository();
   const backendService = new CatalogoService(backendRepo);

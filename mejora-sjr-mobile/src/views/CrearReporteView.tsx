@@ -88,6 +88,27 @@ export const CrearReporteView: React.FC<CrearReporteViewProps> = ({ viewModel })
               <RoleBadge idRol={session?.idRol || 1} idDepartamento={session?.idDepartamento} />
             </View>
 
+            {verMisReportes && (
+              <TouchableOpacity
+                style={styles.trackingBanner}
+                onPress={verMisReportes}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Seguimiento de reportes. Consulta el estado de tus reportes en tiempo real."
+              >
+                <View style={styles.trackingBannerIcon}>
+                  <Text style={styles.trackingBannerEmoji}>📢</Text>
+                </View>
+                <View style={styles.trackingBannerTextWrapper}>
+                  <Text style={styles.trackingBannerTitle}>Seguimiento de tus reportes</Text>
+                  <Text style={styles.trackingBannerSubtitle}>Revisa el avance en tiempo real (Recibido, En curso, Atendido)</Text>
+                </View>
+                <View style={styles.trackingBannerArrow}>
+                  <Text style={styles.trackingBannerArrowText}>›</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.hero}>
               <View style={styles.heroAccent} />
               <Text style={styles.eyebrow}>ESPACIO CIUDADANO</Text>
@@ -343,4 +364,29 @@ const styles = StyleSheet.create({
   folioLabel: { fontSize: 11, letterSpacing: 0.8, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
   folioNumber: { fontSize: 22, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
   modalButton: { alignSelf: 'stretch', marginTop: SPACING.lg },
+  trackingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  trackingBannerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackingBannerEmoji: { fontSize: 18 },
+  trackingBannerTextWrapper: { flex: 1, gap: 2 },
+  trackingBannerTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
+  trackingBannerSubtitle: { fontSize: 12, color: '#475569', lineHeight: 16 },
+  trackingBannerArrow: { paddingLeft: 4 },
+  trackingBannerArrowText: { fontSize: 20, color: COLORS.primary, fontWeight: '700' },
 });
