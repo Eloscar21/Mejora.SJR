@@ -120,3 +120,46 @@ test('BandejaConsultaApiService lanza error cuando la red falla', async () => {
 
   await assert.rejects(service.listarAsignadas(17), /servidor municipal/);
 });
+
+test('BandejaConsultaApiService.actualizarEstado valida parámetros y envía PATCH', async () => {
+  let llamadaUrl = '';
+  let llamadaMethod = '';
+  let llamadaBody = '';
+  let llamadaHeaders = {};
+
+  const mockFetch = async (url, options) => {
+    llamadaUrl = url;
+    llamadaMethod = options.method;
+    llamadaBody = options.body;
+    llamadaHeaders = options.headers;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: {
+          idIncidencia: 5,
+          idEstado: 3,
+          estadoNombre: 'En Progreso',
+          fechaActualizacion: new Date().toISOString(),
+        },
+      }),
+    };
+  };
+
+  const service = new BandejaConsultaApiService(
+    { obtenerToken: async () => 'jwt-trabajador-valido' },
+    'http://localhost:4000/api',
+    mockFetch
+  );
+
+  await assert.rejects(service.actualizarEstado(0, 3), /Identificador/);
+  await assert.rejects(service.actualizarEstado(5, 0), /Estado no válido/);
+
+  const res = await service.actualizarEstado(5, 3);
+  assert.equal(llamadaUrl, 'http://localhost:4000/api/incidencias/5/estado');
+  assert.equal(llamadaMethod, 'PATCH');
+  assert.equal(llamadaHeaders['Authorization'], 'Bearer jwt-trabajador-valido');
+  assert.equal(JSON.parse(llamadaBody).idEstado, 3);
+  assert.equal(res.idEstado, 3);
+});

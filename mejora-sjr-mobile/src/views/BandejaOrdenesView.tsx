@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { useBandejaViewModel } from '../viewModels/useBandejaViewModel';
 import type { EstadoVisualTarea, TareaBandeja } from '../models/bandeja.types';
@@ -8,6 +8,14 @@ import { RoleBadge } from '../components/RoleBadge';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
 
 interface BandejaOrdenesViewProps { viewModel: ReturnType<typeof useBandejaViewModel> }
+
+interface TareaCardProps {
+  tarea: TareaBandeja;
+  esDemostracion?: boolean;
+  onVerFoto: (url: string, id: number) => void;
+  onCambiarEstado: (idIncidencia: number, nuevoEstado: number) => void;
+  estaActualizando: boolean;
+}
 
 const estadoColores: Record<EstadoVisualTarea, { background: string; text: string }> = {
   recibida: { background: COLORS.background, text: COLORS.textSecondary },
@@ -18,8 +26,8 @@ const estadoColores: Record<EstadoVisualTarea, { background: string; text: strin
   desconocido: { background: COLORS.background, text: COLORS.textSecondary },
 };
 
-/** Tarjeta de lectura: el ViewModel ya decidió qué tareas y estados corresponden. */
-function TareaCard({ tarea, esDemostracion }: { tarea: TareaBandeja; esDemostracion?: boolean }) {
+/** Tarjeta interactiva: visualiza detalles, fotografía de evidencia y acciones operativas de estado. */
+function TareaCard({ tarea, esDemostracion, onVerFoto, onCambiarEstado, estaActualizando }: TareaCardProps) {
   const colors = estadoColores[tarea.estadoVisual];
   return (
     <View style={styles.taskCard}>
@@ -34,6 +42,33 @@ function TareaCard({ tarea, esDemostracion }: { tarea: TareaBandeja; esDemostrac
       </View>
       <Text accessibilityRole="header" style={styles.taskTitle}>{tarea.categoria}</Text>
       <Text style={styles.taskDescription}>{tarea.descripcion}</Text>
+
+      {/* Evidencia fotográfica */}
+      {tarea.fotoInicialUrl ? (
+        <View style={styles.photoContainer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => onVerFoto(tarea.fotoInicialUrl!, tarea.idIncidencia)}
+            style={styles.photoButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver fotografía de evidencia para el reporte #${tarea.idIncidencia}`}
+          >
+            <Image
+              source={{ uri: tarea.fotoInicialUrl }}
+              style={styles.photoThumbnail}
+              resizeMode="cover"
+            />
+            <View style={styles.photoOverlayBadge}>
+              <Text style={styles.photoOverlayText}>🔍 Toca para ampliar evidencia</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.noPhotoContainer}>
+          <Text style={styles.noPhotoText}>📷 Sin fotografía adjunta en el reporte</Text>
+        </View>
+      )}
+
       <View style={styles.taskDetails}>
         <View style={styles.detail}>
           <Text style={styles.detailLabel}>Ubicación</Text>
@@ -48,12 +83,110 @@ function TareaCard({ tarea, esDemostracion }: { tarea: TareaBandeja; esDemostrac
           <Text style={styles.detailValue}>{tarea.fecha}</Text>
         </View>
       </View>
+
+      {/* Acciones operativas de cambio de estado en campo */}
+      {!esDemostracion && (
+        <View style={styles.actionsContainer}>
+          <Text style={styles.actionsTitle}>Estado de atención en campo:</Text>
+          <View style={styles.actionButtonsRow}>
+            {tarea.idEstado === 2 && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnProgress]}
+                  disabled={estaActualizando}
+                  onPress={() => onCambiarEstado(tarea.idIncidencia, 3)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Poner orden en marcha"
+                >
+                  {estaActualizando ? (
+                    <ActivityIndicator size="small" color={COLORS.textInverse} />
+                  ) : (
+                    <Text style={styles.actionBtnProgressText}>▶️ Poner en marcha (En curso)</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnSuccess]}
+                  disabled={estaActualizando}
+                  onPress={() => onCambiarEstado(tarea.idIncidencia, 4)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Marcar orden como atendida"
+                >
+                  <Text style={styles.actionBtnSuccessText}>✔️ Marcar Atendida</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {tarea.idEstado === 3 && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnSuccess]}
+                  disabled={estaActualizando}
+                  onPress={() => onCambiarEstado(tarea.idIncidencia, 4)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Finalizar trabajo y marcar como atendida"
+                >
+                  {estaActualizando ? (
+                    <ActivityIndicator size="small" color={COLORS.textInverse} />
+                  ) : (
+                    <Text style={styles.actionBtnSuccessText}>✔️ Finalizar y Atender</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnOutline]}
+                  disabled={estaActualizando}
+                  onPress={() => onCambiarEstado(tarea.idIncidencia, 2)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Regresar orden a en revisión"
+                >
+                  <Text style={styles.actionBtnOutlineText}>↩️ En revisión</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {tarea.idEstado === 4 && (
+              <View style={styles.completedNotice}>
+                <Text style={styles.completedNoticeText}>✅ Reporte atendido y cerrado</Text>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnOutline, { marginTop: SPACING.xs }]}
+                  disabled={estaActualizando}
+                  onPress={() => onCambiarEstado(tarea.idIncidencia, 3)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reabrir atención de esta orden"
+                >
+                  <Text style={styles.actionBtnOutlineText}>Reanudar atención</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {tarea.idEstado !== 2 && tarea.idEstado !== 3 && tarea.idEstado !== 4 && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnProgress]}
+                disabled={estaActualizando}
+                onPress={() => onCambiarEstado(tarea.idIncidencia, 3)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <Text style={styles.actionBtnProgressText}>▶️ Iniciar atención</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
-/** Pantalla de consulta: recibe estado y emite eventos, sin filtrar ni modificar tareas. */
+/** Pantalla de consulta e interacción operativa de campo: visualización de fotos y gestión de estados. */
 export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
+  const [fotoSeleccionada, setFotoSeleccionada] = useState<{ url: string; id: number } | null>(null);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -76,7 +209,15 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
 
       <FlatList
         data={vm.tareas} keyExtractor={(tarea) => String(tarea.idIncidencia)}
-        renderItem={({ item }) => <TareaCard tarea={item} esDemostracion={vm.esDemostracion} />}
+        renderItem={({ item }) => (
+          <TareaCard
+            tarea={item}
+            esDemostracion={vm.esDemostracion}
+            onVerFoto={(url, id) => setFotoSeleccionada({ url, id })}
+            onCambiarEstado={(id, nuevoEstado) => vm.cambiarEstadoTarea(id, nuevoEstado)}
+            estaActualizando={vm.actualizandoId === item.idIncidencia}
+          />
+        )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}
         accessibilityLabel={vm.esDemostracion ? "Lista de tareas de demostración asignadas" : "Lista de órdenes de trabajo asignadas"}
@@ -87,6 +228,17 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
               <RoleBadge idRol={vm.session?.idRol || 2} idDepartamento={vm.session?.idDepartamento} />
             </View>
 
+            {vm.mensajeOperacion && (
+              <View style={styles.toastSuccess}>
+                <Text style={styles.toastSuccessText}>{vm.mensajeOperacion}</Text>
+              </View>
+            )}
+            {vm.errorOperacion && (
+              <View style={styles.toastError}>
+                <Text style={styles.toastErrorText}>{vm.errorOperacion}</Text>
+              </View>
+            )}
+
             <View style={styles.hero}>
               <View style={styles.heroAccent} />
               <Text style={styles.eyebrow}>ESPACIO DEL TRABAJADOR</Text>
@@ -94,7 +246,7 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
               <Text style={styles.heroDescription}>
                 {vm.esDemostracion
                   ? 'Consulta los ejemplos asignados a tu usuario y explora sus estados.'
-                  : 'Consulta las órdenes de trabajo asignadas a tu cuadrilla y su estado en campo.'}
+                  : 'Consulta las órdenes de trabajo asignadas a tu cuadrilla y actualiza su estado en campo.'}
               </Text>
             </View>
 
@@ -179,10 +331,47 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
           <Text style={styles.footerText}>
             {vm.esDemostracion
               ? 'Consulta de demostración. No permite modificar estados.'
-              : 'Bandeja de órdenes asignadas a tu cuadrilla.'}
+              : 'Bandeja operativa de cuadrilla · San Juan del Río'}
           </Text>
         }
       />
+
+      {/* Modal visor de fotografía de evidencia */}
+      <Modal
+        visible={fotoSeleccionada !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFotoSeleccionada(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalEyebrow}>EVIDENCIA CIUDADANA</Text>
+                <Text style={styles.modalTitle}>Reporte #{fotoSeleccionada?.id}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setFotoSeleccionada(null)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar visor de fotografía"
+              >
+                <Text style={styles.modalCloseText}>✕ Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalImageWrapper}>
+              {fotoSeleccionada && (
+                <Image
+                  source={{ uri: fotoSeleccionada.url }}
+                  style={styles.modalImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -233,10 +422,52 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, lineHeight: 19, fontWeight: '700' },
   taskTitle: { fontSize: 19, lineHeight: 26, fontWeight: '700', color: COLORS.textPrimary, marginTop: SPACING.md },
   taskDescription: { fontSize: 15, lineHeight: 23, color: COLORS.textSecondary, marginTop: SPACING.sm },
+
+  // Evidencias fotográficas
+  photoContainer: { marginTop: SPACING.md, borderRadius: RADIUS.md, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
+  photoButton: { position: 'relative' },
+  photoThumbnail: { width: '100%', height: 180, backgroundColor: COLORS.background },
+  photoOverlayBadge: { position: 'absolute', bottom: SPACING.sm, right: SPACING.sm, backgroundColor: 'rgba(0, 0, 0, 0.72)', paddingHorizontal: SPACING.sm, paddingVertical: 5, borderRadius: RADIUS.full },
+  photoOverlayText: { color: COLORS.textInverse, fontSize: 12, fontWeight: '600' },
+  noPhotoContainer: { marginTop: SPACING.sm, padding: SPACING.sm, backgroundColor: COLORS.background, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed' },
+  noPhotoText: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
+
   taskDetails: { marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, gap: SPACING.md },
   detail: { gap: SPACING.xs },
   detailLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   detailValue: { fontSize: 14, lineHeight: 21, color: COLORS.textPrimary },
+
+  // Botones y acciones de cambio de estado
+  actionsContainer: { marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, gap: SPACING.xs },
+  actionsTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
+  actionButtonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.xs },
+  actionBtn: { flexGrow: 1, minHeight: 46, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
+  actionBtnProgress: { backgroundColor: COLORS.primary },
+  actionBtnProgressText: { color: COLORS.textInverse, fontWeight: '700', fontSize: 13 },
+  actionBtnSuccess: { backgroundColor: '#16a34a' },
+  actionBtnSuccessText: { color: COLORS.textInverse, fontWeight: '700', fontSize: 13 },
+  actionBtnOutline: { borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background },
+  actionBtnOutlineText: { color: COLORS.textSecondary, fontWeight: '600', fontSize: 13 },
+  completedNotice: { width: '100%', padding: SPACING.sm, backgroundColor: COLORS.successBackground, borderRadius: RADIUS.md, borderWidth: 1, borderColor: '#16a34a' },
+  completedNoticeText: { color: '#16a34a', fontWeight: '700', fontSize: 13, textAlign: 'center' },
+
+  // Avisos y notificaciones operativas
+  toastSuccess: { padding: SPACING.md, backgroundColor: COLORS.successBackground, borderRadius: RADIUS.md, borderWidth: 1, borderColor: '#16a34a', marginBottom: SPACING.xs },
+  toastSuccessText: { color: '#16a34a', fontWeight: '700', fontSize: 13, textAlign: 'center' },
+  toastError: { padding: SPACING.md, backgroundColor: COLORS.errorBackground, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.errorText, marginBottom: SPACING.xs },
+  toastErrorText: { color: COLORS.errorText, fontWeight: '700', fontSize: 13, textAlign: 'center' },
+
+  // Modal visor de fotos
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)' },
+  modalContainer: { flex: 1, justifyContent: 'space-between' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.md },
+  modalEyebrow: { fontSize: 11, fontWeight: '700', color: COLORS.accent, letterSpacing: 1 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textInverse, marginTop: 2 },
+  modalCloseButton: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: RADIUS.full },
+  modalCloseText: { color: COLORS.textInverse, fontWeight: '700', fontSize: 14 },
+  modalImageWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.sm },
+  modalImage: { width: '100%', height: '100%' },
+
   emptyCard: { padding: SPACING.lg, gap: SPACING.md, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg, backgroundColor: COLORS.surface },
   emptyTitle: { fontSize: 19, lineHeight: 26, fontWeight: '700', color: COLORS.primary, textAlign: 'center' },
   emptyMessage: { fontSize: 14, lineHeight: 22, color: COLORS.textSecondary, textAlign: 'center' },

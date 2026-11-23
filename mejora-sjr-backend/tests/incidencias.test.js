@@ -303,6 +303,91 @@ describe('US-023: API de Creación y Persistencia de Incidencia Ciudadana', () =
         expect(res.body.message).toMatch(/otro departamento/i);
       });
     });
+
+    describe('PATCH /api/incidencias/:id/estado (Actualización de Estado)', () => {
+      beforeEach(async () => {
+        // Asignar idIncidenciaJapam al trabajador con idUsuario 2
+        await incidenciaRepo.asignarTrabajador(idIncidenciaJapam, 2, 2);
+      });
+
+      it('permite al trabajador asignado (Rol 2) cambiar estado a 3 (En Progreso)', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaJapam}/estado`)
+          .set('Authorization', `Bearer ${trabajadorToken}`)
+          .send({ idEstado: 3 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.idEstado).toBe(3);
+      });
+
+      it('permite al trabajador asignado (Rol 2) cambiar estado a 4 (Atendido)', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaJapam}/estado`)
+          .set('Authorization', `Bearer ${trabajadorToken}`)
+          .send({ idEstado: 4 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.idEstado).toBe(4);
+      });
+
+      it('rechaza con 403 si un trabajador intenta cambiar estado de una incidencia asignada a otro', async () => {
+        const otroTrabajadorToken = jwt.sign(
+          { idUsuario: 99, email: 'otro@test.com', idRol: 2, idDepartamento: 1 },
+          TEST_JWT_SECRET
+        );
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaJapam}/estado`)
+          .set('Authorization', `Bearer ${otroTrabajadorToken}`)
+          .send({ idEstado: 3 });
+
+        expect(res.status).toBe(403);
+        expect(res.body.message).toMatch(/asignadas a tu cuadrilla/i);
+      });
+
+      it('rechaza con 400 si un trabajador intenta cambiar a un estado no operativo como 5 (Rechazado)', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaJapam}/estado`)
+          .set('Authorization', `Bearer ${trabajadorToken}`)
+          .send({ idEstado: 5 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/solo pueden actualizar a estados/i);
+      });
+
+      it('permite al admin departamental (Rol 3) cambiar estado en su departamento', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaJapam}/estado`)
+          .set('Authorization', `Bearer ${adminJapamToken}`)
+          .send({ idEstado: 3 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.idEstado).toBe(3);
+      });
+
+      it('rechaza con 403 si admin departamental intenta cambiar estado de otro departamento', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaServicios}/estado`)
+          .set('Authorization', `Bearer ${adminJapamToken}`)
+          .send({ idEstado: 3 });
+
+        expect(res.status).toBe(403);
+        expect(res.body.message).toMatch(/otro departamento/i);
+      });
+
+      it('permite al Superadmin (Rol 4) cambiar estado de cualquier incidencia', async () => {
+        const res = await request(app)
+          .patch(`/api/incidencias/${idIncidenciaServicios}/estado`)
+          .set('Authorization', `Bearer ${superadminToken}`)
+          .send({ idEstado: 4 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.idEstado).toBe(4);
+      });
+    });
   });
 });
 

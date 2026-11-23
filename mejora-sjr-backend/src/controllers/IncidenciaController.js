@@ -15,6 +15,7 @@ class IncidenciaController {
     this.listarMisReportes = this.listarMisReportes.bind(this);
     this.asignar = this.asignar.bind(this);
     this.descartar = this.descartar.bind(this);
+    this.actualizarEstado = this.actualizarEstado.bind(this);
   }
 
   async crear(req, res) {
@@ -88,6 +89,22 @@ class IncidenciaController {
     return res.status(200).json({
       success: true,
       message: 'Incidencia descartada como ficticia/rechazada.',
+      data: resultado
+    });
+  }
+
+  async actualizarEstado(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
+    const { id } = req.params;
+    const { idEstado } = req.body;
+    const resultado = await this.incidenciaService.actualizarEstado(
+      id,
+      { idEstado },
+      usuarioAutenticado
+    );
+    return res.status(200).json({
+      success: true,
+      message: 'Estado de la incidencia actualizado exitosamente.',
       data: resultado
     });
   }

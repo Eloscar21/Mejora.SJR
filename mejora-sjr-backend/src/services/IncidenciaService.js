@@ -277,6 +277,69 @@ class IncidenciaService {
     const resultado = await this.incidenciaRepository.descartarIncidencia(idIncNum, motivoRechazo.trim());
     return resultado;
   }
+
+  /**
+   * Actualizar estado de una incidencia (US-036 / Cuadrilla de campo y administración)
+   * Valida permisos RBAC:
+   * - Rol 2 (Trabajador de campo): únicamente puede modificar incidencias asignadas a él.
+   * - Rol 3 (Admin departamental): únicamente incidencias de su departamento.
+   * - Rol 4 (Superadmin): cualquier incidencia municipal.
+   */
+  async actualizarEstado(idIncidencia, { idEstado }, usuarioAutenticado) {
+    const idIncNum = Number(idIncidencia);
+    const nuevoEstado = Number(idEstado);
+
+    if (!idIncNum || isNaN(idIncNum)) {
+      const error = new Error('ID de incidencia inválido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!nuevoEstado || ![1, 2, 3, 4, 5].includes(nuevoEstado)) {
+      const error = new Error('El estado proporcionado no es válido.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const incidencia = await this.incidenciaRepository.buscarPorId(idIncNum);
+    if (!incidencia) {
+      const error = new Error('La incidencia indicada no existe.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const rol = usuarioAutenticado.idRol || usuarioAutenticado.IdRol;
+    const idUsuario = usuarioAutenticado.idUsuario || usuarioAutenticado.IdUsuario;
+    const deptoUsuario = usuarioAutenticado.idDepartamento !== undefined 
+      ? usuarioAutenticado.idDepartamento 
+      : usuarioAutenticado.IdDepartamento;
+
+    if (rol === 2) {
+      if (Number(incidencia.idTrabajadorAsignado) !== Number(idUsuario)) {
+        const error = new Error('Acceso denegado: Solo puedes actualizar incidencias asignadas a tu cuadrilla.');
+        error.statusCode = 403;
+        throw error;
+      }
+      if (![2, 3, 4].includes(nuevoEstado)) {
+        const error = new Error('Los trabajadores de campo solo pueden actualizar a estados En Revisión (2), En Progreso (3) o Atendido (4).');
+        error.statusCode = 400;
+        throw error;
+      }
+    } else if (rol === 3) {
+      if (Number(incidencia.idDepartamento) !== Number(deptoUsuario)) {
+        const error = new Error('No tienes permisos para actualizar incidencias de otro departamento.');
+        error.statusCode = 403;
+        throw error;
+      }
+    } else if (rol !== 4) {
+      const error = new Error('Acceso denegado: Rol no autorizado para actualizar el estado de incidencias.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const resultado = await this.incidenciaRepository.actualizarEstado(idIncNum, nuevoEstado);
+    return resultado;
+  }
 }
 
 module.exports = IncidenciaService;

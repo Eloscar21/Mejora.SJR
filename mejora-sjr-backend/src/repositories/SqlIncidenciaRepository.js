@@ -235,6 +235,43 @@ class SqlIncidenciaRepository extends IIncidenciaRepository {
   }
 
   /**
+   * Actualizar estado de una incidencia (US-036 / cuadrilla de campo y administración)
+   */
+  async actualizarEstado(idIncidencia, nuevoEstado) {
+    const request = this.pool.request();
+    request.input('IdIncidencia', sql.Int, Number(idIncidencia));
+    request.input('NuevoEstado', sql.Int, Number(nuevoEstado));
+
+    const query = `
+      UPDATE Incidencias
+      SET 
+        IdEstado = @NuevoEstado,
+        FechaActualizacion = GETDATE()
+      OUTPUT 
+        INSERTED.IdIncidencia AS idIncidencia,
+        INSERTED.Descripcion AS descripcion,
+        INSERTED.Latitud AS latitud,
+        INSERTED.Longitud AS longitud,
+        INSERTED.IdUsuario AS idUsuario,
+        INSERTED.IdCategoria AS idCategoria,
+        INSERTED.IdEstado AS idEstado,
+        INSERTED.IdTrabajadorAsignado AS idTrabajadorAsignado,
+        INSERTED.FechaCreacion AS fechaCreacion,
+        INSERTED.FechaActualizacion AS fechaActualizacion
+      WHERE IdIncidencia = @IdIncidencia;
+    `;
+
+    const result = await request.query(query);
+    if (!result.recordset[0]) return null;
+    const row = result.recordset[0];
+    return {
+      ...row,
+      latitud: Number(row.latitud),
+      longitud: Number(row.longitud)
+    };
+  }
+
+  /**
    * Descartar incidencia como ficticia / rechazada (Estado 5) (US-025)
    */
   async descartarIncidencia(idIncidencia, motivoRechazo) {

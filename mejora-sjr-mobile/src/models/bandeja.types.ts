@@ -11,6 +11,7 @@ export interface FiltroBandeja {
 /** Datos que necesita la tarjeta; las reglas de selección no pertenecen a la vista. */
 export interface TareaBandeja {
   idIncidencia: number;
+  idEstado: number;
   categoria: string;
   descripcion: string;
   direccion: string;
@@ -18,4 +19,5 @@ export interface TareaBandeja {
   reportante: string;
   estadoLabel: string;
   estadoVisual: EstadoVisualTarea;
+  fotoInicialUrl?: string | null;
 }

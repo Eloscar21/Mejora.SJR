@@ -107,6 +107,14 @@ class MockIncidenciaRepository extends IIncidenciaRepository {
     return { ...inc };
   }
 
+  async actualizarEstado(idIncidencia, nuevoEstado) {
+    const inc = this.incidencias.find(i => i.idIncidencia === Number(idIncidencia));
+    if (!inc) return null;
+    inc.idEstado = Number(nuevoEstado);
+    inc.fechaActualizacion = new Date();
+    return { ...inc };
+  }
+
   async descartarIncidencia(idIncidencia, motivoRechazo) {
     const inc = this.incidencias.find(i => i.idIncidencia === Number(idIncidencia));
     if (!inc) return null;

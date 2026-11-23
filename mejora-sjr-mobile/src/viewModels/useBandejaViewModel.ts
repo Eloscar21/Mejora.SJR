@@ -30,6 +30,9 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstadoTarea>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+  const [mensajeOperacion, setMensajeOperacion] = useState<string | null>(null);
+  const [errorOperacion, setErrorOperacion] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
     .filter((tarea) => filtroEstado === null || tarea.idEstado === filtroEstado)
     .map((tarea) => ({
       idIncidencia: tarea.idIncidencia,
+      idEstado: tarea.idEstado,
       categoria: tarea.categoriaNombre || 'Sin categoría',
       descripcion: tarea.descripcion,
       direccion: tarea.direccionReferencia || 'Sin referencia de ubicación',
@@ -71,6 +75,7 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
       reportante: tarea.ciudadanoNombre,
       estadoLabel: estados[tarea.idEstado]?.label || 'Estado no disponible',
       estadoVisual: estados[tarea.idEstado]?.visual || 'desconocido',
+      fotoInicialUrl: tarea.fotoInicialUrl || null,
     })), [asignadas, filtroEstado]);
 
   const filtros = useMemo<FiltroBandeja[]>(() => filtrosBase.map((filtro) => ({
@@ -82,6 +87,35 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
   const cambiarFiltro = useCallback((value: FiltroEstadoTarea) => {
     if (filtrosBase.some((filtro) => filtro.value === value)) setFiltroEstado(value);
   }, []);
+
+  const cambiarEstadoTarea = useCallback(async (idIncidencia: number, nuevoEstado: number): Promise<boolean> => {
+    if (typeof consulta.actualizarEstado !== 'function') {
+      setErrorOperacion('Esta versión de la bandeja no permite actualizar el estado.');
+      return false;
+    }
+    setActualizandoId(idIncidencia);
+    setErrorOperacion(null);
+    setMensajeOperacion(null);
+    try {
+      await consulta.actualizarEstado(idIncidencia, nuevoEstado);
+      setOrdenes((actuales) =>
+        actuales.map((ord) =>
+          ord.idIncidencia === idIncidencia
+            ? { ...ord, idEstado: nuevoEstado }
+            : ord
+        )
+      );
+      const nombreEstado = estados[nuevoEstado]?.label || `Estado ${nuevoEstado}`;
+      setMensajeOperacion(`Orden #${idIncidencia} actualizada a "${nombreEstado}".`);
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo actualizar el estado de la orden.';
+      setErrorOperacion(msg);
+      return false;
+    } finally {
+      setActualizandoId(null);
+    }
+  }, [consulta]);
 
   const recargar = useCallback(() => {
     if (perfilValido && !isLoading) setVersion((actual) => actual + 1);
@@ -120,5 +154,10 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
           ? 'Selecciona otro estado para consultar tus tareas de ejemplo.'
           : 'Selecciona otro estado para consultar tus órdenes de trabajo.'),
     recargar, cerrarSesion,
+    actualizandoId,
+    mensajeOperacion,
+    errorOperacion,
+    cambiarEstadoTarea,
+    limpiarMensajesOperacion: () => { setMensajeOperacion(null); setErrorOperacion(null); },
   };
 }

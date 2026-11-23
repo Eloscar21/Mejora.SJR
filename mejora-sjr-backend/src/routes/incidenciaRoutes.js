@@ -42,6 +42,9 @@ const createIncidenciaRouter = (
   // PATCH /api/incidencias/:id/descartar - Descarte de reporte ficticio (US-025: Roles 3 y 4)
   router.patch('/:id/descartar', authorizeRoles(3, 4), incidenciaController.descartar);
 
+  // PATCH /api/incidencias/:id/estado - Cambio de estado de atención en campo o administración (US-036: Roles 2, 3 y 4)
+  router.patch('/:id/estado', authorizeRoles(2, 3, 4), incidenciaController.actualizarEstado);
+
   return router;
 };
 

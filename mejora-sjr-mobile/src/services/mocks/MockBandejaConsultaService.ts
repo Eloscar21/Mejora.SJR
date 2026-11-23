@@ -33,4 +33,14 @@ export class MockBandejaConsultaService implements IBandejaConsultaService {
       .filter((tarea) => tarea.idTrabajadorAsignado === idTrabajador)
       .map((tarea) => ({ ...tarea }));
   }
+
+  async actualizarEstado(idIncidencia: number, nuevoEstado: number): Promise<Incidencia> {
+    const item = ejemplos.find((e) => e.idIncidencia === idIncidencia);
+    if (!item) throw new Error('No se encontró la incidencia.');
+    return {
+      ...item,
+      idEstado: nuevoEstado,
+      estadoNombre: nuevoEstado === 3 ? 'En Progreso' : (nuevoEstado === 4 ? 'Atendido' : 'En Revisión'),
+    };
+  }
 }

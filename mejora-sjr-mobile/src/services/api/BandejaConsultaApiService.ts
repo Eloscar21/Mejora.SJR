@@ -140,4 +140,63 @@ export class BandejaConsultaApiService implements IBandejaConsultaService {
       };
     });
   }
+
+  async actualizarEstado(idIncidencia: number, nuevoEstado: number): Promise<Incidencia> {
+    if (!Number.isSafeInteger(idIncidencia) || idIncidencia <= 0) {
+      throw new Error('Identificador de incidencia no válido.');
+    }
+    if (!Number.isSafeInteger(nuevoEstado) || nuevoEstado <= 0) {
+      throw new Error('Estado no válido.');
+    }
+
+    const token = await this.sesion.obtenerToken();
+    if (!token?.trim()) {
+      throw new Error('Inicia sesión para actualizar la orden de trabajo.');
+    }
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}/incidencias/${idIncidencia}/estado`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ idEstado: nuevoEstado }),
+      });
+    } catch {
+      throw new Error('No fue posible conectar con el servidor municipal para actualizar el estado.');
+    }
+
+    if (!response.ok) {
+      let errorMsg = `Error ${response.status}: No fue posible actualizar la orden.`;
+      try {
+        const errorJson = (await response.json()) as { message?: string };
+        if (errorJson && typeof errorJson.message === 'string') {
+          errorMsg = errorJson.message;
+        }
+      } catch {
+        // fallback
+      }
+      throw new Error(errorMsg);
+    }
+
+    const json = (await response.json()) as { success?: boolean; data?: IncidenciaBackendRaw };
+    const raw = json.data || {};
+    return {
+      idIncidencia,
+      descripcion: String(raw.descripcion ?? raw.Descripcion ?? ''),
+      latitud: Number(raw.latitud ?? raw.Latitud ?? 20.3889),
+      longitud: Number(raw.longitud ?? raw.Longitud ?? -99.9961),
+      idCategoria: Number(raw.idCategoria ?? raw.IdCategoria ?? 1),
+      idDepartamento: Number(raw.idDepartamento ?? raw.IdDepartamento ?? 1),
+      idEstado: nuevoEstado,
+      estadoNombre: String(raw.estadoNombre ?? raw.Estado ?? 'Actualizado'),
+      idUsuario: Number(raw.idCiudadano ?? raw.IdCiudadano ?? 0),
+      ciudadanoNombre: String(raw.ciudadanoNombre ?? raw.CiudadanoNombre ?? 'Ciudadano'),
+      idTrabajadorAsignado: raw.idTrabajadorAsignado ? Number(raw.idTrabajadorAsignado) : null,
+      fechaCreacion: formatearFecha(raw.fechaCreacion ?? raw.FechaCreacion),
+    };
+  }
 }

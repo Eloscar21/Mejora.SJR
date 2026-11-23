@@ -55,6 +55,16 @@ class IIncidenciaRepository {
   }
 
   /**
+   * Actualiza el estado de una incidencia (US-036 / Operación en campo)
+   * @param {number} idIncidencia
+   * @param {number} nuevoEstado
+   * @returns {Promise<Object|null>}
+   */
+  async actualizarEstado(idIncidencia, nuevoEstado) {
+    throw new Error('Método no implementado');
+  }
+
+  /**
    * Descarta una incidencia marcándola con IdEstado = 5 (Rechazado) y guardando motivo (US-025)
    * @param {number} idIncidencia
    * @param {string} motivoRechazo
