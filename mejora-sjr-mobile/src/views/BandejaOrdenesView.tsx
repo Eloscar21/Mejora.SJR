@@ -7,7 +7,10 @@ import { CustomButton } from '../components/CustomButton';
 import { RoleBadge } from '../components/RoleBadge';
 import { COLORS, SPACING, RADIUS } from '../constants/theme';
 
-interface BandejaOrdenesViewProps { viewModel: ReturnType<typeof useBandejaViewModel> }
+interface BandejaOrdenesViewProps {
+  viewModel: ReturnType<typeof useBandejaViewModel>;
+  onVerMisDatos?: () => void;
+}
 
 interface TareaCardProps {
   tarea: TareaBandeja;
@@ -184,7 +187,7 @@ function TareaCard({ tarea, esDemostracion, onVerFoto, onCambiarEstado, estaActu
 }
 
 /** Pantalla de consulta e interacción operativa de campo: visualización de fotos y gestión de estados. */
-export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
+export function BandejaOrdenesView({ viewModel: vm, onVerMisDatos }: BandejaOrdenesViewProps) {
   const [fotoSeleccionada, setFotoSeleccionada] = useState<{ url: string; id: number } | null>(null);
 
   return (
@@ -198,12 +201,25 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
               <Text style={styles.brandCaption}>San Juan del Río</Text>
             </View>
           </View>
-          <TouchableOpacity
-            accessibilityRole="button" accessibilityLabel="Cerrar sesión"
-            onPress={vm.cerrarSesion} style={styles.logoutButton} activeOpacity={0.7}
-          >
-            <Text style={styles.logoutText}>Salir</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {onVerMisDatos && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Ver mis datos y cambiar contraseña"
+                onPress={onVerMisDatos}
+                style={styles.profileButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.profileButtonText}>Mis datos</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              accessibilityRole="button" accessibilityLabel="Cerrar sesión"
+              onPress={vm.cerrarSesion} style={styles.logoutButton} activeOpacity={0.7}
+            >
+              <Text style={styles.logoutText}>Salir</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -386,6 +402,9 @@ const styles = StyleSheet.create({
   brandText: { flex: 1, minWidth: 0 },
   brandName: { fontSize: 17, fontWeight: '700', color: COLORS.primary },
   brandCaption: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  profileButton: { minHeight: 48, paddingHorizontal: SPACING.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.primary, borderRadius: RADIUS.md, backgroundColor: COLORS.primaryMuted },
+  profileButtonText: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
   logoutButton: { minHeight: 48, minWidth: 64, paddingHorizontal: SPACING.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md },
   logoutText: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
   listContent: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: SPACING.md, paddingBottom: SPACING.xl },

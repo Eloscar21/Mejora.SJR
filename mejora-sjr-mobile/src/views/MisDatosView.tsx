@@ -31,6 +31,7 @@ interface MisDatosViewProps {
 }
 
 export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => {
+  const esTrabajador = vm.perfil?.idRol === 2;
   const resumen = vm.perfil?.resumenReportes ?? {
     total: 0,
     recibidos: 0,
@@ -51,7 +52,11 @@ export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => 
               <Text accessibilityRole="header" style={styles.title}>
                 Mis datos
               </Text>
-              <Text style={styles.subtitle}>Perfil ciudadano • San Juan del Río</Text>
+              <Text style={styles.subtitle}>
+                {vm.perfil?.idRol === 2
+                  ? 'Perfil de trabajador • San Juan del Río'
+                  : 'Perfil ciudadano • San Juan del Río'}
+              </Text>
             </View>
             <CustomButton
               title="Volver"
@@ -96,34 +101,36 @@ export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => 
                 </View>
               </View>
 
-              {/* 3. Resumen de Participación Ciudadana */}
-              <View style={styles.card}>
-                <Text accessibilityRole="header" style={styles.cardTitle}>
-                  Mi participación ciudadana
-                </Text>
-                <Text style={styles.cardDescription}>
-                  Resumen de reportes que has registrado en Mejora SJR.
-                </Text>
+              {/* 3. Resumen de Participación Ciudadana (solo Ciudadano Rol 1) */}
+              {!esTrabajador && (
+                <View style={styles.card}>
+                  <Text accessibilityRole="header" style={styles.cardTitle}>
+                    Mi participación ciudadana
+                  </Text>
+                  <Text style={styles.cardDescription}>
+                    Resumen de reportes que has registrado en Mejora SJR.
+                  </Text>
 
-                <View style={styles.statsGrid}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statNumber}>{resumen.total}</Text>
-                    <Text style={styles.statLabel}>Total</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statNumber}>{resumen.recibidos}</Text>
-                    <Text style={styles.statLabel}>Recibidos</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statNumber}>{resumen.enProceso}</Text>
-                    <Text style={styles.statLabel}>En atención</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statNumber}>{resumen.resueltos}</Text>
-                    <Text style={styles.statLabel}>Resueltos</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statNumber}>{resumen.total}</Text>
+                      <Text style={styles.statLabel}>Total</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statNumber}>{resumen.recibidos}</Text>
+                      <Text style={styles.statLabel}>Recibidos</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statNumber}>{resumen.enProceso}</Text>
+                      <Text style={styles.statLabel}>En atención</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statNumber}>{resumen.resueltos}</Text>
+                      <Text style={styles.statLabel}>Resueltos</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              )}
 
               {/* 4. Alertas de éxito o error */}
               {vm.mensajeExito && (
@@ -142,69 +149,75 @@ export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => 
                 </View>
               )}
 
-              {/* 5. Formulario de Información Personal */}
-              <View style={styles.card}>
-                <Text accessibilityRole="header" style={styles.cardTitle}>
-                  Información personal
-                </Text>
-                <Text style={styles.cardDescription}>
-                  Actualiza tu nombre o correo electrónico de contacto para tus reportes.
-                </Text>
+              {/* 5. Formulario de Información Personal (solo Ciudadano Rol 1) */}
+              {!esTrabajador && (
+                <View style={styles.card}>
+                  <Text accessibilityRole="header" style={styles.cardTitle}>
+                    Información personal
+                  </Text>
+                  <Text style={styles.cardDescription}>
+                    Actualiza tu nombre o correo electrónico de contacto para tus reportes.
+                  </Text>
 
-                <CustomInput
-                  label="Nombre completo"
-                  accessibilityLabel="Nombre completo del ciudadano"
-                  placeholder="Ej. Juan Pérez"
-                  value={vm.nombre}
-                  onChangeText={vm.setNombre}
-                  editable={!vm.isSaving}
-                  hasError={Boolean(vm.errors.nombre)}
-                  errorMessage={vm.errors.nombre}
-                />
+                  <CustomInput
+                    label="Nombre completo"
+                    accessibilityLabel="Nombre completo del ciudadano"
+                    placeholder="Ej. Juan Pérez"
+                    value={vm.nombre}
+                    onChangeText={vm.setNombre}
+                    editable={!vm.isSaving}
+                    hasError={Boolean(vm.errors.nombre)}
+                    errorMessage={vm.errors.nombre}
+                  />
 
-                <CustomInput
-                  label="Correo electrónico"
-                  accessibilityLabel="Correo electrónico del ciudadano"
-                  placeholder="ejemplo@correo.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={vm.email}
-                  onChangeText={vm.setEmail}
-                  editable={!vm.isSaving}
-                  hasError={Boolean(vm.errors.email)}
-                  errorMessage={vm.errors.email}
-                />
-              </View>
+                  <CustomInput
+                    label="Correo electrónico"
+                    accessibilityLabel="Correo electrónico del ciudadano"
+                    placeholder="ejemplo@correo.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={vm.email}
+                    onChangeText={vm.setEmail}
+                    editable={!vm.isSaving}
+                    hasError={Boolean(vm.errors.email)}
+                    errorMessage={vm.errors.email}
+                  />
+                </View>
+              )}
 
-              {/* 6. Sección Opcional de Cambio de Contraseña */}
+              {/* 6. Sección de Cambio de Contraseña (siempre abierta para Trabajador Rol 2) */}
               <View style={styles.card}>
                 <View style={styles.passwordHeader}>
                   <View style={styles.flex}>
                     <Text accessibilityRole="header" style={styles.cardTitle}>
-                      Seguridad de la cuenta
+                      {esTrabajador ? '🔐 Mi contraseña' : 'Seguridad de la cuenta'}
                     </Text>
                     <Text style={styles.cardDescription}>
-                      Opcional. Cambia tu contraseña de acceso si lo deseas.
+                      {esTrabajador
+                        ? 'Actualiza el acceso a tu cuenta. Usa al menos 8 caracteres y una clave diferente de la actual.'
+                        : 'Opcional. Cambia tu contraseña de acceso si lo deseas.'}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      vm.mostrarCambioPassword
-                        ? 'Cancelar cambio de contraseña'
-                        : 'Cambiar contraseña'
-                    }
-                    onPress={vm.toggleCambioPassword}
-                    disabled={vm.isSaving}
-                    style={styles.toggleButton}
-                  >
-                    <Text style={styles.toggleButtonText}>
-                      {vm.mostrarCambioPassword ? 'Ocultar' : 'Cambiar clave'}
-                    </Text>
-                  </TouchableOpacity>
+                  {!esTrabajador && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        vm.mostrarCambioPassword
+                          ? 'Cancelar cambio de contraseña'
+                          : 'Cambiar contraseña'
+                      }
+                      onPress={vm.toggleCambioPassword}
+                      disabled={vm.isSaving}
+                      style={styles.toggleButton}
+                    >
+                      <Text style={styles.toggleButtonText}>
+                        {vm.mostrarCambioPassword ? 'Ocultar' : 'Cambiar clave'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                {vm.mostrarCambioPassword && (
+                {(esTrabajador || vm.mostrarCambioPassword) && (
                   <View style={styles.passwordFields}>
                     <CustomInput
                       label="Contraseña actual"
@@ -241,6 +254,11 @@ export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => 
                       hasError={Boolean(vm.errors.confirmarPassword)}
                       errorMessage={vm.errors.confirmarPassword}
                     />
+                    {esTrabajador && (
+                      <Text style={styles.cardDescription}>
+                        Tu contraseña actual se usa para confirmar tu identidad antes del cambio.
+                      </Text>
+                    )}
                   </View>
                 )}
               </View>
@@ -248,7 +266,7 @@ export const MisDatosView: React.FC<MisDatosViewProps> = ({ viewModel: vm }) => 
               {/* 7. Botones de Acción */}
               <View style={styles.actionsCard}>
                 <CustomButton
-                  title="Guardar mis datos"
+                  title={esTrabajador ? 'Actualizar contraseña' : 'Guardar mis datos'}
                   onPress={vm.guardarCambios}
                   isLoading={vm.isSaving}
                   disabled={vm.isSaving}

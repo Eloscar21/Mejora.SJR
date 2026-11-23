@@ -36,7 +36,8 @@ export function useMisDatosViewModel({
   const [nombre, setNombre] = useState(session?.nombre || '');
   const [email, setEmail] = useState(session?.email || '');
 
-  const [mostrarCambioPassword, setMostrarCambioPassword] = useState(false);
+  const esTrabajador = session?.idRol === 2;
+  const [mostrarCambioPassword, setMostrarCambioPassword] = useState(esTrabajador);
   const [passwordActual, setPasswordActual] = useState('');
   const [passwordNueva, setPasswordNueva] = useState('');
   const [confirmarPassword, setConfirmarPassword] = useState('');
