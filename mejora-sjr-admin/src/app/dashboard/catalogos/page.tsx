@@ -1,9 +1,10 @@
 /**
  * app/dashboard/catalogos/page.tsx
- * Pantalla de Administración de Catálogos Municipales (US-027).
+ * Pantalla de Administración de Catálogos Municipales (US-027 / US-030 / US-035).
  *
- * Requerimiento US-027:
- * "Vista /dashboard/catalogos para visualizar y gestionar dependencias y categorías de reportes."
+ * Requerimiento US-027 / US-035:
+ * "Vista /dashboard/catalogos para visualizar y gestionar dependencias y categorías de reportes,
+ * conectando el modal a POST /api/catalogos/categorias para persistir en Azure SQL."
  */
 
 'use client';
@@ -21,12 +22,11 @@ export default function DashboardCatalogosPage() {
     () =>
       process.env.NEXT_PUBLIC_USE_MOCK === 'true'
         ? new MockCatalogoService()
-        : new CatalogoApiService(),
-    []
+        : new CatalogoApiService(undefined, undefined, authService),
+    [authService]
   );
 
   const viewModel = useCatalogosViewModel(authService, catalogoService);
 
   return <CatalogosMunicipalesView viewModel={viewModel} />;
 }
-

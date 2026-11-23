@@ -12,6 +12,8 @@ class CatalogoController {
     this.catalogoService = catalogoService;
     this.obtenerDepartamentos = this.obtenerDepartamentos.bind(this);
     this.obtenerCategorias = this.obtenerCategorias.bind(this);
+    this.crearCategoria = this.crearCategoria.bind(this);
+    this.actualizarCategoria = this.actualizarCategoria.bind(this);
   }
 
   async obtenerDepartamentos(req, res) {
@@ -30,6 +32,44 @@ class CatalogoController {
     return res.status(200).json({
       success: true,
       data: categorias
+    });
+  }
+
+  /**
+   * POST /api/catalogos/categorias (US-035)
+   */
+  async crearCategoria(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
+    const { nombre, idDepartamento } = req.body || {};
+    const nuevaCategoria = await this.catalogoService.crearCategoria(
+      { nombre, idDepartamento },
+      usuarioAutenticado
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Categoría creada exitosamente.',
+      data: nuevaCategoria
+    });
+  }
+
+  /**
+   * PUT / PATCH /api/catalogos/categorias/:id (US-035)
+   */
+  async actualizarCategoria(req, res) {
+    const usuarioAutenticado = req.usuario || req.user;
+    const { id } = req.params;
+    const { nombre, idDepartamento } = req.body || {};
+    const actualizada = await this.catalogoService.actualizarCategoria(
+      id,
+      { nombre, idDepartamento },
+      usuarioAutenticado
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Categoría actualizada exitosamente.',
+      data: actualizada
     });
   }
 }

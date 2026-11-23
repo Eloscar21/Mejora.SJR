@@ -10,6 +10,7 @@ const MockCatalogoRepository = require('./src/repositories/MockCatalogoRepositor
 const MockIncidenciaRepository = require('./src/repositories/MockIncidenciaRepository');
 const MockSolicitudPasswordRepository = require('./src/repositories/MockSolicitudPasswordRepository');
 const SqlUsuarioRepository = require('./src/repositories/SqlUsuarioRepository');
+const SqlCatalogoRepository = require('./src/repositories/SqlCatalogoRepository');
 const SqlIncidenciaRepository = require('./src/repositories/SqlIncidenciaRepository');
 const SqlSolicitudPasswordRepository = require('./src/repositories/SqlSolicitudPasswordRepository');
 
@@ -34,7 +35,7 @@ const bootstrap = async () => {
       console.log('[Bootstrapper] Conectando a Azure SQL...');
       const pool = await getPool();
       usuarioRepository = new SqlUsuarioRepository(pool);
-      catalogoRepository = new MockCatalogoRepository();
+      catalogoRepository = new SqlCatalogoRepository(pool);
       incidenciaRepository = new SqlIncidenciaRepository(pool);
       solicitudPasswordRepository = new SqlSolicitudPasswordRepository(pool);
       console.log('[Bootstrapper] Repositorios SQL conectados exitosamente a Azure SQL.');

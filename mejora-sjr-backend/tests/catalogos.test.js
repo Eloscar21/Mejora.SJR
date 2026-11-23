@@ -168,4 +168,66 @@ describe('US-002: API de Catálogos (Departamentos y Categorías)', () => {
       expect(resCats.body.data).toHaveLength(4);
     });
   });
+
+  describe('US-035: Creación y Persistencia de Nuevas Categorías (POST /api/catalogos/categorias)', () => {
+    it('Superadmin (Rol 4) puede crear una nueva categoría en cualquier departamento', async () => {
+      const token = generateToken({ idUsuario: 4, idRol: 4, email: 'superadmin@sjr.gob.mx' });
+      const res = await request(app)
+        .post('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ nombre: 'Recolección de escombro', idDepartamento: 2 });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual({
+        idCategoria: 5,
+        nombre: 'Recolección de escombro',
+        idDepartamento: 2,
+        departamentoNombre: 'Servicios Públicos'
+      });
+
+      // Verificar que GET /api/catalogos/categorias ya incluye la nueva categoría
+      const resGet = await request(app).get('/api/catalogos/categorias');
+      expect(resGet.body.data).toHaveLength(5);
+    });
+
+    it('Admin JAPAM (Rol 3, Depto 1) puede crear una categoría para JAPAM pero recibe 403 si intenta crearla para Servicios Públicos', async () => {
+      const token = generateToken({ idUsuario: 3, idRol: 3, idDepartamento: 1, email: 'admin.japam@sjr.gob.mx' });
+
+      const resOk = await request(app)
+        .post('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ nombre: 'Medidores averiados', idDepartamento: 1 });
+
+      expect(resOk.status).toBe(201);
+      expect(resOk.body.data.idDepartamento).toBe(1);
+      expect(resOk.body.data.departamentoNombre).toBe('JAPAM');
+
+      const resForbidden = await request(app)
+        .post('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ nombre: 'Poda de árboles', idDepartamento: 2 });
+
+      expect(resForbidden.status).toBe(403);
+      expect(resForbidden.body.success).toBe(false);
+    });
+
+    it('rechaza con 409 una categoría duplicada en el mismo departamento y con 403 a Ciudadanos (Rol 1)', async () => {
+      const tokenSuper = generateToken({ idUsuario: 4, idRol: 4 });
+      const resDup = await request(app)
+        .post('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${tokenSuper}`)
+        .send({ nombre: 'Fugas de agua', idDepartamento: 1 });
+
+      expect(resDup.status).toBe(409);
+
+      const tokenCiudadano = generateToken({ idUsuario: 1, idRol: 1 });
+      const resCiudadano = await request(app)
+        .post('/api/catalogos/categorias')
+        .set('Authorization', `Bearer ${tokenCiudadano}`)
+        .send({ nombre: 'Categoría ciudadana', idDepartamento: 1 });
+
+      expect(resCiudadano.status).toBe(403);
+    });
+  });
 });

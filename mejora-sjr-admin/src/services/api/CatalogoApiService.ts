@@ -1,7 +1,8 @@
 /**
  * CatalogoApiService.ts
- * Servicio HTTP para la consulta y administración de Catálogos Municipales (US-027 / US-002).
- * Sincroniza GET /api/catalogos/departamentos y GET /api/catalogos/categorias con soporte de gestión administrativa.
+ * Servicio HTTP para la consulta y administración de Catálogos Municipales (US-027 / US-030 / US-035).
+ * Sincroniza GET /api/catalogos/departamentos, GET /api/catalogos/categorias
+ * y persiste físicamente nuevas categorías vía POST /api/catalogos/categorias en Azure SQL.
  */
 
 import type {
@@ -10,6 +11,7 @@ import type {
   GuardarCategoriaPayload,
   GuardarDepartamentoPayload,
 } from '../../models/catalogo.types';
+import type { IAuthService } from '../contracts/IAuthService';
 import type { ICatalogoService } from '../contracts/ICatalogoService';
 import { MockCatalogoService } from '../mocks/MockCatalogoService';
 
@@ -20,28 +22,39 @@ function esObjeto(value: unknown): value is Record<string, unknown> {
 export class CatalogoApiService implements ICatalogoService {
   private readonly baseUrl: string;
   private readonly store: MockCatalogoService;
-  private sincronizado = false;
+  private readonly sesion?: Pick<IAuthService, 'obtenerToken'>;
 
   constructor(
     baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
-    store: MockCatalogoService = new MockCatalogoService()
+    store: MockCatalogoService = new MockCatalogoService(),
+    sesion?: Pick<IAuthService, 'obtenerToken'>
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.store = store;
+    this.sesion = sesion;
+  }
+
+  private obtenerHeaders(conJson = false): Record<string, string> {
+    const token = this.sesion?.obtenerToken();
+    return {
+      Accept: 'application/json',
+      ...(conJson ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
   }
 
   private async sincronizarConBackend(): Promise<void> {
-    if (this.sincronizado) return;
     try {
+      const headers = this.obtenerHeaders(false);
       const [resDeptos, resCats] = await Promise.all([
         fetch(`${this.baseUrl}/catalogos/departamentos`, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers,
           cache: 'no-store',
         }),
         fetch(`${this.baseUrl}/catalogos/categorias`, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers,
           cache: 'no-store',
         }),
       ]);
@@ -76,10 +89,9 @@ export class CatalogoApiService implements ICatalogoService {
             : [];
 
         this.store.sincronizarDesdeRemoto(deptosRemotos, catsRemotas);
-        this.sincronizado = true;
       }
     } catch {
-      // Mantiene el catálogo oficial semilla cuando el backend no está alcanzable
+      // Mantiene el catálogo en memoria cuando el backend no está alcanzable en modo offline
     }
   }
 
@@ -104,14 +116,111 @@ export class CatalogoApiService implements ICatalogoService {
     return this.store.actualizarDepartamento(idDepartamento, payload);
   }
 
+  /**
+   * US-035: Persiste físicamente la nueva categoría en la tabla Categorias de Azure SQL
+   * mediante POST /api/catalogos/categorias con validación RBAC departamental.
+   */
   async crearCategoria(payload: GuardarCategoriaPayload): Promise<CategoriaReporte> {
-    return this.store.crearCategoria(payload);
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/catalogos/categorias`, {
+        method: 'POST',
+        headers: this.obtenerHeaders(true),
+        body: JSON.stringify({
+          nombre: payload.nombre.trim(),
+          idDepartamento: Number(payload.idDepartamento),
+        }),
+      });
+    } catch {
+      return this.store.crearCategoria(payload);
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('El servidor devolvió una respuesta inválida al crear la categoría.');
+    }
+
+    if (!response.ok) {
+      const msg =
+        esObjeto(body) && typeof body.message === 'string' && body.message.trim()
+          ? body.message
+          : 'No se pudo crear la categoría en el servidor.';
+      throw new Error(msg);
+    }
+
+    if (!esObjeto(body) || body.success !== true || !esObjeto(body.data)) {
+      throw new Error('Respuesta incompleta al crear la categoría.');
+    }
+
+    const data = body.data;
+    const idCategoria = Number(data.idCategoria ?? data.IdCategoria);
+    const nombre = String(data.nombre ?? data.Nombre ?? payload.nombre).trim();
+    const idDepartamento = Number(
+      data.idDepartamento ?? data.IdDepartamento ?? payload.idDepartamento
+    );
+    const departamentoNombre =
+      typeof data.departamentoNombre === 'string' && data.departamentoNombre.trim()
+        ? data.departamentoNombre.trim()
+        : idDepartamento === 1
+          ? 'JAPAM'
+          : 'Servicios Públicos';
+
+    this.store.sincronizarDesdeRemoto([], [
+      { idCategoria, nombre, idDepartamento, departamentoNombre },
+    ]);
+
+    return {
+      idCategoria,
+      nombre,
+      idDepartamento,
+      departamentoNombre,
+      descripcion:
+        payload.descripcion?.trim() ||
+        'Categoría oficial de atención operativa para reportes ciudadanos.',
+      prioridad: payload.prioridad || 'Media',
+      slaHoras: Number(payload.slaHoras) > 0 ? Number(payload.slaHoras) : 48,
+      activo: payload.activo !== undefined ? Boolean(payload.activo) : true,
+    };
   }
 
+  /**
+   * US-035: Actualiza una categoría existente mediante PUT /api/catalogos/categorias/:id.
+   */
   async actualizarCategoria(
     idCategoria: number,
     payload: GuardarCategoriaPayload
   ): Promise<CategoriaReporte> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/catalogos/categorias/${idCategoria}`, {
+        method: 'PUT',
+        headers: this.obtenerHeaders(true),
+        body: JSON.stringify({
+          nombre: payload.nombre.trim(),
+          idDepartamento: Number(payload.idDepartamento),
+        }),
+      });
+    } catch {
+      return this.store.actualizarCategoria(idCategoria, payload);
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('El servidor devolvió una respuesta inválida al actualizar la categoría.');
+    }
+
+    if (!response.ok) {
+      const msg =
+        esObjeto(body) && typeof body.message === 'string' && body.message.trim()
+          ? body.message
+          : 'No se pudo actualizar la categoría en el servidor.';
+      throw new Error(msg);
+    }
+
     return this.store.actualizarCategoria(idCategoria, payload);
   }
 
@@ -119,4 +228,3 @@ export class CatalogoApiService implements ICatalogoService {
     return this.store.cambiarEstadoCategoria(idCategoria, activo);
   }
 }
-

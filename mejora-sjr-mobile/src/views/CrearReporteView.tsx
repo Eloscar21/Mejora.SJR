@@ -127,6 +127,21 @@ export const CrearReporteView: React.FC<CrearReporteViewProps> = ({ viewModel })
             )}
 
             <ReportSection number="01" title="¿Qué sucede?" description="Clasifica el problema y agrega una descripción.">
+              <View style={styles.catalogRefreshRow}>
+                <Text style={styles.supportingText}>
+                  {categoriasItems.length} {categoriasItems.length === 1 ? 'categoría disponible' : 'categorías disponibles'}
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Sincronizar categorías en tiempo real"
+                  onPress={cargarCatalogos}
+                  disabled={formularioBloqueado || isLoadingCatalogos}
+                >
+                  <Text style={styles.refreshCatalogLink}>
+                    {isLoadingCatalogos ? 'Sincronizando...' : 'Actualizar categorías'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <CustomPicker
                 label="Departamento" placeholder="Selecciona un departamento"
                 items={departamentosItems} selectedValue={selectedDepartamento}
@@ -286,6 +301,8 @@ const styles = StyleSheet.create({
   sectionNumberText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: COLORS.textPrimary },
   sectionDescription: { fontSize: 14, lineHeight: 21, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  catalogRefreshRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  refreshCatalogLink: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
   textArea: { minHeight: 120, height: 120, textAlignVertical: 'top', paddingTop: SPACING.sm },
   errorCard: { backgroundColor: COLORS.errorBackground, borderWidth: 1, borderColor: COLORS.errorBorder, padding: SPACING.md, borderRadius: RADIUS.md, gap: SPACING.sm },
   errorText: { fontSize: 14, lineHeight: 21, color: COLORS.errorText },
