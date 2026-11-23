@@ -27,8 +27,7 @@ class CatalogoController {
 
   async obtenerCategorias(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { idDepartamento } = req.query;
-    const categorias = await this.catalogoService.listarCategorias(idDepartamento, usuarioAutenticado);
+    const categorias = await this.catalogoService.listarCategorias(req.query, usuarioAutenticado);
     return res.status(200).json({
       success: true,
       data: categorias
@@ -40,9 +39,8 @@ class CatalogoController {
    */
   async crearCategoria(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { nombre, idDepartamento } = req.body || {};
     const nuevaCategoria = await this.catalogoService.crearCategoria(
-      { nombre, idDepartamento },
+      req.body,
       usuarioAutenticado
     );
 
@@ -59,10 +57,9 @@ class CatalogoController {
   async actualizarCategoria(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { nombre, idDepartamento } = req.body || {};
     const actualizada = await this.catalogoService.actualizarCategoria(
       id,
-      { nombre, idDepartamento },
+      req.body,
       usuarioAutenticado
     );
 

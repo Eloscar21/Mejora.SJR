@@ -17,8 +17,7 @@ class PasswordRecoveryController {
   }
 
   async solicitar(req, res) {
-    const { email } = req.body;
-    const resultado = await this.passwordRecoveryService.solicitarReseteo(email);
+    const resultado = await this.passwordRecoveryService.solicitarReseteo(req.body);
     return res.status(200).json({
       success: true,
       message: resultado.mensaje
@@ -27,8 +26,7 @@ class PasswordRecoveryController {
 
   async listar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
-    const { estado } = req.query;
-    const solicitudes = await this.passwordRecoveryService.listarSolicitudes(usuarioAutenticado, estado);
+    const solicitudes = await this.passwordRecoveryService.listarSolicitudes(usuarioAutenticado, req.query);
     return res.status(200).json({
       success: true,
       data: solicitudes
@@ -38,10 +36,9 @@ class PasswordRecoveryController {
   async aprobar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { passwordProvisional, notas } = req.body;
     const resultado = await this.passwordRecoveryService.aprobarSolicitud(
       id,
-      { passwordProvisional, notas },
+      req.body,
       usuarioAutenticado
     );
     return res.status(200).json({
@@ -54,10 +51,9 @@ class PasswordRecoveryController {
   async rechazar(req, res) {
     const usuarioAutenticado = req.usuario || req.user;
     const { id } = req.params;
-    const { motivo } = req.body;
     const resultado = await this.passwordRecoveryService.rechazarSolicitud(
       id,
-      { motivo },
+      req.body,
       usuarioAutenticado
     );
     return res.status(200).json({

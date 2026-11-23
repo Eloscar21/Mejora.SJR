@@ -15,8 +15,7 @@ class AuthController {
   }
 
   async registrarCiudadano(req, res) {
-    const { nombre, email, password } = req.body;
-    const resultado = await this.authService.registrarCiudadano({ nombre, email, password });
+    const resultado = await this.authService.registrarCiudadano(req.body);
     return res.status(201).json({
       success: true,
       message: 'Ciudadano registrado con éxito.',
@@ -25,8 +24,7 @@ class AuthController {
   }
 
   async login(req, res) {
-    const { email, password } = req.body;
-    const resultado = await this.authService.login({ email, password });
+    const resultado = await this.authService.login(req.body);
     return res.status(200).json({
       success: true,
       message: 'Autenticación exitosa.',

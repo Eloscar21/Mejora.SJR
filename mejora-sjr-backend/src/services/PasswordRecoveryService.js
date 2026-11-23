@@ -42,8 +42,10 @@ class PasswordRecoveryService {
    * Solicitar reseteo de contraseña desde el login (Público)
    * Regla Zero-Trust: Siempre responde mensaje genérico para evitar enumeración de usuarios.
    */
-  async solicitarReseteo(email) {
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
+  async solicitarReseteo(datos) {
+    const rawEmail = typeof datos === 'object' && datos !== null ? datos.email : datos;
+    const email = typeof rawEmail === 'string' ? rawEmail : '';
+    if (!email || !email.includes('@')) {
       const error = new Error('Debe proporcionar un correo electrónico válido.');
       error.statusCode = 400;
       throw error;
@@ -70,7 +72,8 @@ class PasswordRecoveryService {
   /**
    * Listar solicitudes de reseteo (Exclusivo Superadmin Rol 4)
    */
-  async listarSolicitudes(usuarioAutenticado, estado = 'PENDIENTE') {
+  async listarSolicitudes(usuarioAutenticado, filtros = 'PENDIENTE') {
+    const estado = typeof filtros === 'object' && filtros !== null ? (filtros.estado || 'PENDIENTE') : filtros;
     if (!usuarioAutenticado || (usuarioAutenticado.idRol !== 4 && usuarioAutenticado.IdRol !== 4)) {
       const error = new Error('Acceso denegado: Exclusivo para Superadministradores.');
       error.statusCode = 403;
@@ -83,7 +86,8 @@ class PasswordRecoveryService {
   /**
    * Aprobar solicitud y generar contraseña temporal (Exclusivo Superadmin Rol 4)
    */
-  async aprobarSolicitud(idSolicitud, { passwordProvisional, notas }, superadminAutenticado) {
+  async aprobarSolicitud(idSolicitud, datosAprobacion = {}, superadminAutenticado) {
+    const { passwordProvisional, notas } = datosAprobacion || {};
     const idSolNum = Number(idSolicitud);
     if (!idSolNum || isNaN(idSolNum)) {
       const error = new Error('ID de solicitud inválido.');
@@ -136,7 +140,9 @@ class PasswordRecoveryService {
   /**
    * Rechazar solicitud de reseteo (Exclusivo Superadmin Rol 4)
    */
-  async rechazarSolicitud(idSolicitud, { motivo }, superadminAutenticado) {
+  async rechazarSolicitud(idSolicitud, datosRechazo = {}, superadminAutenticado) {
+    const motivoRaw = typeof datosRechazo === 'object' && datosRechazo !== null ? datosRechazo.motivo : datosRechazo;
+    const motivo = typeof motivoRaw === 'string' ? motivoRaw : '';
     const idSolNum = Number(idSolicitud);
     if (!idSolNum || isNaN(idSolNum)) {
       const error = new Error('ID de solicitud inválido.');

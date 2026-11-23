@@ -11,11 +11,8 @@ class PasswordChangeController {
   }
 
   async cambiar(req, res) {
-    const { passwordActual, passwordNueva, confirmarPassword } = req.body || {};
-    const resultado = await this.passwordChangeService.cambiarPassword(
-      { passwordActual, passwordNueva, confirmarPassword },
-      req.usuario || req.user
-    );
+    const usuarioAutenticado = req.usuario || req.user;
+    const resultado = await this.passwordChangeService.cambiarPassword(req.body, usuarioAutenticado);
     return res.status(200).set('Cache-Control', 'no-store').json({
       success: true,
       message: resultado.mensaje,

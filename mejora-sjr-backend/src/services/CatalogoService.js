@@ -21,13 +21,16 @@ class CatalogoService {
     return departamentos;
   }
 
-  async listarCategorias(idDepartamento = null, usuarioAutenticado = null) {
-    let deptoIdFiltrar = idDepartamento;
+  async listarCategorias(filtrosOId = null, usuarioAutenticado = null) {
+    const rawDepto = typeof filtrosOId === 'object' && filtrosOId !== null
+      ? filtrosOId.idDepartamento
+      : filtrosOId;
+    let deptoIdFiltrar = rawDepto;
 
     // Aislamiento Departamental Estricto (US-030): Admin de Depto (Rol 3) solo ve su propia dependencia
     if (usuarioAutenticado && Number(usuarioAutenticado.idRol) === 3) {
       const deptoActor = Number(usuarioAutenticado.idDepartamento);
-      if (idDepartamento && Number(idDepartamento) !== deptoActor) {
+      if (rawDepto && Number(rawDepto) !== deptoActor) {
         const error = new Error('Acceso denegado: No tienes autorización para consultar o gestionar catálogos de otra dependencia.');
         error.statusCode = 403;
         throw error;
@@ -53,7 +56,8 @@ class CatalogoService {
    * - Rol 3 (Admin Depto): Solo puede crear categorías para su propio departamento (idDepartamento del JWT).
    * - Rol 4 (Superadmin): Puede crear categorías para cualquier departamento válido.
    */
-  async crearCategoria({ nombre, idDepartamento } = {}, usuarioAutenticado = null) {
+  async crearCategoria(datosCategoria = {}, usuarioAutenticado = null) {
+    const { nombre, idDepartamento } = datosCategoria || {};
     if (!usuarioAutenticado || !usuarioAutenticado.idRol) {
       const error = new Error('Se requiere autenticación para crear categorías.');
       error.statusCode = 401;
@@ -126,7 +130,8 @@ class CatalogoService {
   /**
    * Actualiza una categoría existente validando aislamiento RBAC departamental (US-035).
    */
-  async actualizarCategoria(idCategoria, { nombre, idDepartamento } = {}, usuarioAutenticado = null) {
+  async actualizarCategoria(idCategoria, datosCategoria = {}, usuarioAutenticado = null) {
+    const { nombre, idDepartamento } = datosCategoria || {};
     if (!usuarioAutenticado || !usuarioAutenticado.idRol) {
       const error = new Error('Se requiere autenticación para actualizar categorías.');
       error.statusCode = 401;

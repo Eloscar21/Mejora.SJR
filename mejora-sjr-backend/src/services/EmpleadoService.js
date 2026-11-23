@@ -54,7 +54,8 @@ class EmpleadoService {
   /**
    * Crear nuevo empleado en la base de datos
    */
-  async crearEmpleado({ nombre, email, password, idRol, idDepartamento }, usuarioAutenticado) {
+  async crearEmpleado(datosEmpleado = {}, usuarioAutenticado) {
+    const { nombre, email, password, idRol, idDepartamento } = datosEmpleado || {};
     this._exigirSuperadmin(usuarioAutenticado);
 
     if (!nombre || !email || !password || idRol === undefined) {
@@ -99,7 +100,8 @@ class EmpleadoService {
    * - Rol 4 (Superadmin): retorna toda la tabla (roles 2 y 3 o según filtros sin forzar depto).
    * - Rol 3 (Admin Depto): inyecta dinámicamente WHERE IdDepartamento = @IdDepto AND IdRol = 2.
    */
-  async listarEmpleados(usuarioAutenticado, { soloActivos = false } = {}) {
+  async listarEmpleados(usuarioAutenticado, filtros = {}) {
+    const soloActivos = filtros && (filtros.soloActivos === true || filtros.soloActivos === 'true');
     const rol = usuarioAutenticado?.idRol ?? usuarioAutenticado?.IdRol;
     if (![3, 4].includes(rol)) {
       const error = new Error('No tienes permisos para consultar empleados.');
@@ -107,7 +109,7 @@ class EmpleadoService {
       throw error;
     }
 
-    const filtros = { roles: [2, 3], soloActivos };
+    const filtrosConsulta = { roles: [2, 3], soloActivos };
 
     // US-021: el administrador solo consulta trabajadores de su propio departamento.
     if (rol === 3) {
@@ -120,21 +122,23 @@ class EmpleadoService {
         throw error;
       }
 
-      filtros.roles = [2];
-      filtros.idDepartamento = idDepartamento;
+      filtrosConsulta.roles = [2];
+      filtrosConsulta.idDepartamento = idDepartamento;
     }
 
     if (typeof this.usuarioRepository.obtenerEmpleados === 'function') {
-      return await this.usuarioRepository.obtenerEmpleados(filtros);
+      return await this.usuarioRepository.obtenerEmpleados(filtrosConsulta);
     }
-    return await this.usuarioRepository.listarEmpleadosActivos(filtros);
+    return await this.usuarioRepository.listarEmpleadosActivos(filtrosConsulta);
   }
 
   /**
    * Actualizar nombre, rol o departamento de un empleado
    */
-  async actualizarEmpleado(idUsuario, { nombre, idRol, idDepartamento }, usuarioAutenticado) {
+  async actualizarEmpleado(idUsuario, datosActualizacion = {}, usuarioAutenticado) {
     this._exigirSuperadmin(usuarioAutenticado);
+
+    const { nombre, idRol, idDepartamento } = datosActualizacion || {};
 
     const idNum = Number(idUsuario);
     if (!idNum || isNaN(idNum)) {

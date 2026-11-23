@@ -23,7 +23,8 @@ class AuthService {
     this.jwtSecret = jwtSecret.trim();
   }
 
-  async registrarCiudadano({ nombre, email, password }) {
+  async registrarCiudadano(datosRegistro = {}) {
+    const { nombre, email, password } = datosRegistro || {};
     if (!nombre || !email || !password) {
       const error = new Error('Todos los campos son requeridos: nombre, email, password.');
       error.statusCode = 400;
@@ -65,7 +66,8 @@ class AuthService {
     };
   }
 
-  async login({ email, password }) {
+  async login(credenciales = {}) {
+    const { email, password } = credenciales || {};
     if (!email || !password) {
       const error = new Error('Email y password son requeridos.');
       error.statusCode = 400;
