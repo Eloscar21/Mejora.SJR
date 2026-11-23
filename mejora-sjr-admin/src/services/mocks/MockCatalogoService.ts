@@ -262,12 +262,13 @@ export class MockCatalogoService implements ICatalogoService {
 
   /** Sincroniza los registros base provenientes de GET /api/catalogos/* sin perder enriquecimiento. */
   sincronizarDesdeRemoto(
-    departamentosRemotos: Array<{ idDepartamento: number; nombre: string }>,
+    departamentosRemotos: Array<{ idDepartamento: number; nombre: string; activo?: boolean }>,
     categoriasRemotas: Array<{
       idCategoria: number;
       nombre: string;
       idDepartamento: number;
       departamentoNombre?: string;
+      activo?: boolean;
     }>
   ): void {
     for (const remoto of departamentosRemotos) {
@@ -278,6 +279,7 @@ export class MockCatalogoService implements ICatalogoService {
         this.departamentos[idx] = {
           ...this.departamentos[idx],
           nombre: remoto.nombre,
+          activo: remoto.activo !== undefined ? Boolean(remoto.activo) : this.departamentos[idx].activo,
         };
       } else {
         this.departamentos.push({
@@ -286,7 +288,7 @@ export class MockCatalogoService implements ICatalogoService {
           siglas: remoto.nombre.slice(0, 6).toUpperCase(),
           descripcion: 'Dependencia municipal oficial.',
           titular: 'Dirección Municipal',
-          activo: true,
+          activo: remoto.activo !== undefined ? Boolean(remoto.activo) : true,
         });
       }
     }
@@ -305,7 +307,7 @@ export class MockCatalogoService implements ICatalogoService {
           nombre: remota.nombre,
           idDepartamento: Number(remota.idDepartamento),
           departamentoNombre: deptoNombre,
-          activo: (remota as any).activo !== undefined ? Boolean((remota as any).activo) : this.categorias[idx].activo,
+          activo: remota.activo !== undefined ? Boolean(remota.activo) : this.categorias[idx].activo,
         };
       } else {
         this.categorias.push({
@@ -316,7 +318,7 @@ export class MockCatalogoService implements ICatalogoService {
           descripcion: 'Categoría oficial de reporte ciudadano.',
           prioridad: 'Media',
           slaHoras: 48,
-          activo: (remota as any).activo !== undefined ? Boolean((remota as any).activo) : true,
+          activo: remota.activo !== undefined ? Boolean(remota.activo) : true,
         });
       }
     }

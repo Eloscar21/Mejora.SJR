@@ -84,6 +84,12 @@ export class CatalogoApiService implements ICatalogoService {
                   idDepartamento: Number(c.idDepartamento ?? c.IdDepartamento),
                   departamentoNombre:
                     typeof c.departamentoNombre === 'string' ? c.departamentoNombre : undefined,
+                  activo:
+                    c.activo !== undefined
+                      ? Boolean(c.activo)
+                      : c.Activo !== undefined
+                        ? Boolean(c.Activo)
+                        : true,
                 }))
                 .filter((c) => c.idCategoria > 0 && c.nombre.length > 0)
             : [];
@@ -167,8 +173,15 @@ export class CatalogoApiService implements ICatalogoService {
           ? 'JAPAM'
           : 'Servicios Públicos';
 
+    const activo =
+      data.activo !== undefined
+        ? Boolean(data.activo)
+        : payload.activo !== undefined
+          ? Boolean(payload.activo)
+          : true;
+
     this.store.sincronizarDesdeRemoto([], [
-      { idCategoria, nombre, idDepartamento, departamentoNombre },
+      { idCategoria, nombre, idDepartamento, departamentoNombre, activo },
     ]);
 
     return {
