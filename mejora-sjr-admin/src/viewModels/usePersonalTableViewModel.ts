@@ -94,6 +94,9 @@ export function usePersonalTableViewModel(
         }
 
         setIdRolActor(payload.idRol);
+        if (payload.idRol === 3) {
+          setFiltroRol(2);
+        }
         setErrorAcceso(null);
 
         const listado = await consulta.listarEmpleados();
@@ -245,11 +248,22 @@ export function usePersonalTableViewModel(
     setVersion((v) => v + 1);
   }, [puedeConsultar, accionModal]);
 
+  const cambiarFiltroRol = useCallback(
+    (rol: number | 'todos') => {
+      if (idRolActor === 3) {
+        setFiltroRol(2);
+      } else {
+        setFiltroRol(rol);
+      }
+    },
+    [idRolActor]
+  );
+
   const limpiarFiltros = useCallback(() => {
     setFiltroTexto('');
-    setFiltroRol('todos');
+    setFiltroRol(idRolActor === 3 ? 2 : 'todos');
     setFiltroEstado('todos');
-  }, []);
+  }, [idRolActor]);
 
   // 5. Manejo optimista de cambios confirmados por los formularios
   const procesarCambio = useCallback((cambio: CambioPersonal) => {
@@ -306,7 +320,7 @@ export function usePersonalTableViewModel(
     filtroTexto,
     setFiltroTexto,
     filtroRol,
-    setFiltroRol,
+    setFiltroRol: cambiarFiltroRol,
     filtroEstado,
     setFiltroEstado,
     limpiarFiltros,

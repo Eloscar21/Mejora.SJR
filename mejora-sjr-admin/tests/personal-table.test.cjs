@@ -357,6 +357,9 @@ test('la vista de rol 3 muestra sus datos y filtros sin crear, editar, desactiva
   assert.match(html, /Pedro/);
   assert.match(html, /Buscar por nombre/);
   assert.match(html, /Actualizar/);
+  assert.match(html, /Rol 2 - Trabajador de Campo/);
+  assert.doesNotMatch(html, /Rol 3 - Admin Departamental/);
+  assert.doesNotMatch(html, /Admins Depto \(Rol 3\)/);
   assert.doesNotMatch(html, /Nuevo Empleado|Editar empleado|Desactivar empleado|>Acciones<|data-formularios/);
   const body = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/)[1];
   assert.equal((body.match(/<td\b/g) || []).length, 5);
@@ -370,6 +373,8 @@ test('la vista de rol 4 conserva las acciones y la composición de formularios',
   assert.match(html, /Editar empleado Pedro/);
   assert.match(html, /Desactivar empleado Pedro/);
   assert.match(html, />Acciones</);
+  assert.match(html, /Rol 3 - Admin Departamental/);
+  assert.match(html, /Admins Depto \(Rol 3\)/);
   assert.match(html, /data-formularios="montados"/);
 });
 

@@ -68,8 +68,11 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
     return <IntercepcionErrorView codigo={403} modo="embebido" />;
   }
 
+  const esSuperadmin = vm.puedeGestionar;
   const hayFiltrosActivos =
-    Boolean(vm.filtroTexto.trim()) || vm.filtroRol !== 'todos' || vm.filtroEstado !== 'todos';
+    Boolean(vm.filtroTexto.trim()) ||
+    (esSuperadmin ? vm.filtroRol !== 'todos' : false) ||
+    vm.filtroEstado !== 'todos';
 
   return (
     <div className="space-y-6">
@@ -161,16 +164,16 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
         </div>
       )}
 
-      {/* 4. Tarjetas KPI Métricas Superiores (US-022: contadores actualizados reactivamente con los filtros) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* 4. Tarjetas KPI Métricas Superiores (US-022 / US-034: contadores actualizados reactivamente con los filtros) */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${esSuperadmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
         <button
           type="button"
           onClick={() => {
-            vm.setFiltroRol('todos');
+            vm.setFiltroRol(esSuperadmin ? 'todos' : 2);
             vm.setFiltroEstado('todos');
           }}
           className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-blue-300 ${
-            vm.filtroRol === 'todos' && vm.filtroEstado === 'todos'
+            (vm.filtroRol === 'todos' || (!esSuperadmin && vm.filtroRol === 2)) && vm.filtroEstado === 'todos'
               ? 'border-blue-400 ring-1 ring-blue-400/30'
               : 'border-slate-200'
           }`}
@@ -224,26 +227,28 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
           </div>
         </button>
 
-        <button
-          type="button"
-          onClick={() => vm.setFiltroRol(vm.filtroRol === 3 ? 'todos' : 3)}
-          className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-purple-300 ${
-            vm.filtroRol === 3
-              ? 'border-purple-500 ring-1 ring-purple-500/30 bg-purple-50/20'
-              : 'border-slate-200'
-          }`}
-          title="Filtrar Administradores Departamentales (Rol 3)"
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Admins Depto (Rol 3)</span>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold text-purple-700">{vm.metricas.administradores}</span>
-            <Building2 className="h-4 w-4 text-purple-500" />
-          </div>
-        </button>
+        {esSuperadmin && (
+          <button
+            type="button"
+            onClick={() => vm.setFiltroRol(vm.filtroRol === 3 ? 'todos' : 3)}
+            className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-purple-300 ${
+              vm.filtroRol === 3
+                ? 'border-purple-500 ring-1 ring-purple-500/30 bg-purple-50/20'
+                : 'border-slate-200'
+            }`}
+            title="Filtrar Administradores Departamentales (Rol 3)"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Admins Depto (Rol 3)</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-2xl font-extrabold text-purple-700">{vm.metricas.administradores}</span>
+              <Building2 className="h-4 w-4 text-purple-500" />
+            </div>
+          </button>
+        )}
 
         <button
           type="button"
-          onClick={() => vm.setFiltroRol(vm.filtroRol === 2 ? 'todos' : 2)}
+          onClick={() => vm.setFiltroRol(vm.filtroRol === 2 ? (esSuperadmin ? 'todos' : 2) : 2)}
           className={`p-4 rounded-xl bg-white border text-left transition-all shadow-sm hover:border-indigo-300 ${
             vm.filtroRol === 2
               ? 'border-indigo-500 ring-1 ring-indigo-500/30 bg-indigo-50/20'
@@ -298,9 +303,15 @@ export const PersonalDataGrid: React.FC<PersonalDataGridProps> = ({ viewModel: v
               }}
               className="text-xs rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="todos">Todos los roles</option>
-              <option value="2">Rol 2 - Trabajador de Campo</option>
-              <option value="3">Rol 3 - Admin Departamental</option>
+              {esSuperadmin ? (
+                <>
+                  <option value="todos">Todos los roles</option>
+                  <option value="2">Rol 2 - Trabajador de Campo</option>
+                  <option value="3">Rol 3 - Admin Departamental</option>
+                </>
+              ) : (
+                <option value="2">Rol 2 - Trabajador de Campo</option>
+              )}
             </select>
           </div>
 

@@ -19,13 +19,13 @@ const estadoColores: Record<EstadoVisualTarea, { background: string; text: strin
 };
 
 /** Tarjeta de lectura: el ViewModel ya decidió qué tareas y estados corresponden. */
-function TareaCard({ tarea }: { tarea: TareaBandeja }) {
+function TareaCard({ tarea, esDemostracion }: { tarea: TareaBandeja; esDemostracion?: boolean }) {
   const colors = estadoColores[tarea.estadoVisual];
   return (
     <View style={styles.taskCard}>
       <View style={styles.taskHeading}>
         <View style={styles.taskReference}>
-          <Text style={styles.taskEyebrow}>TAREA DE EJEMPLO</Text>
+          <Text style={styles.taskEyebrow}>{esDemostracion ? 'TAREA DE EJEMPLO' : 'ORDEN DE TRABAJO'}</Text>
           <Text style={styles.taskNumber}>#{tarea.idIncidencia}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: colors.background }]}>
@@ -44,7 +44,7 @@ function TareaCard({ tarea }: { tarea: TareaBandeja }) {
           <Text style={styles.detailValue}>{tarea.reportante}</Text>
         </View>
         <View style={styles.detail}>
-          <Text style={styles.detailLabel}>Fecha del ejemplo</Text>
+          <Text style={styles.detailLabel}>{esDemostracion ? 'Fecha del ejemplo' : 'Fecha de reporte'}</Text>
           <Text style={styles.detailValue}>{tarea.fecha}</Text>
         </View>
       </View>
@@ -76,10 +76,10 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
 
       <FlatList
         data={vm.tareas} keyExtractor={(tarea) => String(tarea.idIncidencia)}
-        renderItem={({ item }) => <TareaCard tarea={item} />}
+        renderItem={({ item }) => <TareaCard tarea={item} esDemostracion={vm.esDemostracion} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}
-        accessibilityLabel="Lista de tareas de demostración asignadas"
+        accessibilityLabel={vm.esDemostracion ? "Lista de tareas de demostración asignadas" : "Lista de órdenes de trabajo asignadas"}
         ListHeaderComponent={(
           <View style={styles.listHeader}>
             <View style={styles.profileRow}>
@@ -91,13 +91,19 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
               <View style={styles.heroAccent} />
               <Text style={styles.eyebrow}>ESPACIO DEL TRABAJADOR</Text>
               <Text accessibilityRole="header" style={styles.heroTitle}>Mis tareas</Text>
-              <Text style={styles.heroDescription}>Consulta los ejemplos asignados a tu usuario y explora sus estados.</Text>
+              <Text style={styles.heroDescription}>
+                {vm.esDemostracion
+                  ? 'Consulta los ejemplos asignados a tu usuario y explora sus estados.'
+                  : 'Consulta las órdenes de trabajo asignadas a tu cuadrilla y su estado en campo.'}
+              </Text>
             </View>
 
-            <View style={styles.demoNotice}>
-              <Text style={styles.demoTitle}>Demostración · Solo lectura</Text>
-              <Text style={styles.demoText}>Los datos son de ejemplo. No representan asignaciones reales del municipio.</Text>
-            </View>
+            {vm.esDemostracion && (
+              <View style={styles.demoNotice}>
+                <Text style={styles.demoTitle}>Demostración · Solo lectura</Text>
+                <Text style={styles.demoText}>Los datos son de ejemplo. No representan asignaciones reales del municipio.</Text>
+              </View>
+            )}
 
             <View style={styles.metrics}>
               <View style={styles.metric}>
@@ -130,9 +136,10 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
             </View>
 
             <CustomButton
-              title="Actualizar ejemplos" variant="outline" onPress={vm.recargar}
+              title={vm.esDemostracion ? "Actualizar ejemplos" : "Actualizar órdenes"}
+              variant="outline" onPress={vm.recargar}
               disabled={!vm.puedeRecargar} accessibilityRole="button"
-              accessibilityLabel="Volver a consultar las tareas de ejemplo asignadas"
+              accessibilityLabel={vm.esDemostracion ? "Volver a consultar las tareas de ejemplo asignadas" : "Volver a consultar las órdenes de trabajo asignadas"}
             />
           </View>
         )}
@@ -141,8 +148,14 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
             {vm.listStatus === 'loading' ? (
               <>
                 <ActivityIndicator color={COLORS.primary} size="large" />
-                <Text accessibilityLiveRegion="polite" style={styles.emptyTitle}>Consultando ejemplos</Text>
-                <Text style={styles.emptyMessage}>Preparando las tareas asignadas a tu usuario.</Text>
+                <Text accessibilityLiveRegion="polite" style={styles.emptyTitle}>
+                  {vm.esDemostracion ? 'Consultando ejemplos' : 'Consultando órdenes'}
+                </Text>
+                <Text style={styles.emptyMessage}>
+                  {vm.esDemostracion
+                    ? 'Preparando las tareas asignadas a tu usuario.'
+                    : 'Cargando las órdenes de trabajo asignadas a tu cuadrilla.'}
+                </Text>
               </>
             ) : vm.listStatus === 'error' ? (
               <>
@@ -162,7 +175,13 @@ export function BandejaOrdenesView({ viewModel: vm }: BandejaOrdenesViewProps) {
             )}
           </View>
         )}
-        ListFooterComponent={<Text style={styles.footerText}>Consulta de demostración. No permite modificar estados.</Text>}
+        ListFooterComponent={
+          <Text style={styles.footerText}>
+            {vm.esDemostracion
+              ? 'Consulta de demostración. No permite modificar estados.'
+              : 'Bandeja de órdenes asignadas a tu cuadrilla.'}
+          </Text>
+        }
       />
     </SafeAreaView>
   );

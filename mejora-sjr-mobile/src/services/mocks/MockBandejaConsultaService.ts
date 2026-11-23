@@ -24,6 +24,7 @@ const ejemplos: readonly Incidencia[] = [
 
 /** Fuente de consulta de demostración, sin HTTP ni persistencia de tareas. */
 export class MockBandejaConsultaService implements IBandejaConsultaService {
+  public readonly esMock = true;
   async listarAsignadas(idTrabajador: number): Promise<Incidencia[]> {
     if (!Number.isSafeInteger(idTrabajador) || idTrabajador <= 0) {
       throw new Error('Se requiere un identificador de trabajador válido.');

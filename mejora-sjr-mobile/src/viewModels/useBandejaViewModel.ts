@@ -97,6 +97,11 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
 
   const error = perfilValido ? errorCarga : 'Esta bandeja requiere una sesión de trabajador válida.';
   const listStatus = error ? 'error' : isLoading ? 'loading' : tareas.length === 0 ? 'empty' : 'ready';
+  const esDemostracion = Boolean(
+    (consulta as { esMock?: boolean }).esMock !== undefined
+      ? (consulta as { esMock?: boolean }).esMock
+      : consulta.constructor?.name === 'MockBandejaConsultaService'
+  );
 
   return {
     session, tareas, filtros, filtroEstado, cambiarFiltro,
@@ -105,10 +110,15 @@ export function useBandejaViewModel(consulta: IBandejaConsultaService) {
     enCurso: asignadas.filter((tarea) => tarea.idEstado === 3).length,
     isLoading, error, listStatus,
     puedeRecargar: perfilValido && !isLoading,
+    esDemostracion,
     emptyTitle: asignadas.length === 0 ? 'No tienes tareas asignadas' : 'No hay tareas con este filtro',
     emptyMessage: asignadas.length === 0
-      ? 'La demostración no tiene tareas asociadas a tu usuario.'
-      : 'Selecciona otro estado para consultar tus tareas de ejemplo.',
+      ? (esDemostracion
+          ? 'La demostración no tiene tareas asociadas a tu usuario.'
+          : 'No tienes órdenes de trabajo asignadas a tu cuadrilla en este momento.')
+      : (esDemostracion
+          ? 'Selecciona otro estado para consultar tus tareas de ejemplo.'
+          : 'Selecciona otro estado para consultar tus órdenes de trabajo.'),
     recargar, cerrarSesion,
   };
 }
